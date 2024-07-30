@@ -1,0 +1,3 @@
+[submodule "lib/libm17"]
+	path = lib/libm17
+	url = https://github.com/mdiepart/libm17

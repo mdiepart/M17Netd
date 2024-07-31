@@ -6,11 +6,17 @@ project(M17Netd
 
 set(m17netd_src
     src/m17netd.cpp
+	src/tuntap.cpp
+	src/tunthread.cpp
 )
 
 add_executable(M17Netd ${m17netd_src})
 
+target_include_directories(M17Netd PUBLIC
+			   ${PROJECT_SOURCE_DIR}/inc
+		   	  )
 
 set(BUILD_STATIC_LIB ON)
 add_subdirectory(lib/libm17)
 target_link_libraries(M17Netd PUBLIC m17-static)
+

@@ -1,8 +1,11 @@
 #pragma once
 
-class tunthread {
+#include <atomic>
+#include <cstdbool>
+#include <cstdlib>
+#include <string>
 
-public:
-    void operator()(std::atomic<bool>& running, std::string ifname);
-        
+class tunthread {
+    public:
+    void operator()(std::atomic_bool &running, const std::string &ifname);
 };

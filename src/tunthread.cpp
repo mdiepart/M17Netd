@@ -15,9 +15,7 @@
 #include "tunthread.h"
 #include "tuntap.h"
 
-int tun_alloc(char *dev);
-
-void tunthread::operator()(std::atomic<bool>& running, std::string ifname)
+void tunthread::operator()(std::atomic_bool &running, const std::string &ifname)
 {
     TunDevice interface(ifname);
 
@@ -34,6 +32,4 @@ void tunthread::operator()(std::atomic<bool>& running, std::string ifname)
 
         std::cout << ss.str() << std::endl;
     }
-    
 }
-

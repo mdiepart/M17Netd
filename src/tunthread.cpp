@@ -1,51 +1,65 @@
 #include <thread>
 #include <iostream>
-#include <string>
 #include <sstream>
-#include <cstring>
 #include <fstream>
 #include <atomic>
 #include <vector>
 #include <cstdint>
 #include <cstdbool>
 
-#include <linux/if.h>
-#include <linux/if_tun.h>
-
-
 #include "tunthread.h"
 #include "tuntap.h"
 
-void tunthread::operator()(std::atomic_bool &running, const std::string &ifname)
+
+void tunthread::operator()(std::atomic_bool &running, tunthread_cfg &if_cfg)
 {
     int err;
 
+    std::cout << "Tun thread starting. Configuration:"
+    << "\n\tInterface name: " << if_cfg.name << "%d"
+    << "\n\tInterface IP: " << if_cfg.ip
+    << "\n\tInterface MTU: " << if_cfg.mtu << std::endl;
+
+    // Parse toml configuration
+    std::string_view name = std::string(if_cfg.name) + "%d";
+
     // Setting-up thread
-    TunDevice interface(ifname);
+    TunDevice interface(name);
 
     // Set IP address
-    interface.setIPV4("172.16.0.1");
+    interface.setIPV4(if_cfg.ip);
 
     // Set MTU
-    interface.setMTU(868);
+    interface.setMTU(if_cfg.mtu);
 
 
     // Bring interface UP
     interface.setUpDown(true); // Up    
 
+    bool reading = true;
+
+    std::stringstream ss;
+    std::vector<uint8_t> packet;
 
     // Thread loop
     while( running )
     {
-        std::vector<uint8_t> packet = interface.getPacket();
-        std::stringstream ss;
-        ss << "Received packet with content: ";
-
-        for(auto it = packet.begin(); it < packet.end(); it++)
+        packet = interface.getPacket(std::ref(running));
+        if(packet.empty())
         {
-            ss << std::hex << *it << ", ";
+            reading=false;
+            std::cout << "getPacket returned an empty vector. Errno = " << errno << std::endl;
         }
+        else{
+            ss << "Received packet with content: ";
 
-        //std::cout << ss.str() << std::endl;
+            for(auto it = packet.begin(); it < packet.end(); it++)
+            {
+                ss << std::hex << *it << ", ";
+            }
+
+            std::cout << ss.str() << std::endl;
+        }
+        
     }
 }

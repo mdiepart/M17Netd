@@ -20,21 +20,25 @@
 
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/types.h>
+#include <net/route.h>
+
 
 #include "tuntap.h"
 
 #define ifreq_offsetof(x)  offsetof(struct ifreq, x)
 
-TunDevice::TunDevice(const std::string &name)
+TunDevice::TunDevice(const std::string_view name)
 {
-    const char *dev = name.c_str();
+    const char *dev = name.data();
+
     struct ifreq ifr;
     int err;
 
     // Open the clone device
     if( (tun_fd = open("/dev/net/tun", O_RDWR)) < 0 )
     {
-        std::cerr << "Unable to open clone device for tuntap interface: error " << tun_fd << std::endl;
+        std::cerr << "Unable to open clone device for tuntap interface: error " << errno << std::endl;
         return;
     }
        
@@ -46,7 +50,7 @@ TunDevice::TunDevice(const std::string &name)
      *
      *        IFF_NO_PI - Do not provide packet information
      */
-    ifr.ifr_flags = IFF_TUN;
+    ifr.ifr_flags = IFF_TUN | IFF_NO_CARRIER;
 
     // if a name was given, copy it in the init structure
     if( *dev )
@@ -85,15 +89,48 @@ TunDevice::~TunDevice()
     close(sock_fd);
 }
 
-std::vector<uint8_t> TunDevice::getPacket()
+std::vector<uint8_t> TunDevice::getPacket(std::atomic<bool> &running)
 {    
-    std::cout << "Not implemented yet." << std::endl;
-    sleep(1);
+    uint8_t storage[mtu + 32];
+    struct timespec read_timeout = {.tv_sec = 1, .tv_nsec = 0}; // 1 sec timeout
+    bool loop = true;
+    std::size_t n = 0;
 
-    return std::vector<uint8_t>(5, 0);
+    fd_set read_fdset;
+    FD_ZERO(&read_fdset);
+    FD_SET(tun_fd, &read_fdset);
+
+    while(loop && running)
+    {
+        int ret = pselect(1, &read_fdset, nullptr, nullptr, &read_timeout, 0);
+        if(ret < 0){
+            std::cout << "Tun thread: pselect error, errno=" << errno << std::endl;
+            loop = false;
+        }
+        else if(ret == 0)
+        {
+            // Pselect timed out, retry
+            continue;
+        }
+        else if(ret == 1)
+        {
+            n = read(sock_fd, storage, mtu + 32);
+            loop = false;
+        }
+    }
+
+    if(n <= 0)
+    {
+        return std::vector<uint8_t>();
+    }
+    else
+    {
+        return std::vector<uint8_t>(storage, storage + n);
+    }
+    
 }
 
-void TunDevice::setIPV4(const char *ip)
+void TunDevice::setIPV4(std::string_view ip)
 {   
     int err;
 
@@ -107,7 +144,7 @@ void TunDevice::setIPV4(const char *ip)
     memset(&sai, 0, sizeof(struct sockaddr));
     sai.sin_family = AF_INET;
     sai.sin_port = htons(0);
-    sai.sin_addr.s_addr = inet_addr(ip);
+    sai.sin_addr.s_addr = inet_addr(ip.data());
 
     // Copy ip to ifr struct    
     memcpy(&ifr.ifr_addr, &sai, sizeof(struct sockaddr));
@@ -147,9 +184,10 @@ void TunDevice::setUpDown(bool up)
     }
 }
 
-void TunDevice::setMTU(int mtu)
+void TunDevice::setMTU(int size)
 {
     int err;
+    mtu = size;
 
     // init ifr struct
     struct ifreq ifr;
@@ -164,4 +202,9 @@ void TunDevice::setMTU(int mtu)
     {
         std::cout << "Could not set MTU of interface " << ifName << ": errno=" << errno << std::endl;
     }
+}
+
+void TunDevice::addRoute(std::string_view route)
+{
+    struct rtentry rt;
 }

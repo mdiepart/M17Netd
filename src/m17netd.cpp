@@ -10,7 +10,7 @@
 
 std::atomic<bool> running; // Signals to the threads that program must stop and exit
 
-int parse_config(const toml::table &toml_cfg, tunthread_cfg &tun);
+int parse_tun_config(const toml::table &toml_cfg, tunthread_cfg &tun);
 
 void sigint_catcher(int signum)
 {
@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
 
     // Extract configs
     tunthread_cfg net_if_cfg;
-    parse_config(config_tbl, net_if_cfg);
+    parse_tun_config(config_tbl, net_if_cfg);
 
     std::cout << "Config parsed, if_name=" << net_if_cfg.name << std::endl;
 
@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
-int parse_config(const toml::table &toml_cfg, tunthread_cfg &tun)
+int parse_tun_config(const toml::table &toml_cfg, tunthread_cfg &tun)
 {
     tun.name = toml_cfg["general"]["net_if"]["name"].value_or("m17d");
     tun.mtu = toml_cfg["general"]["net_if"]["mtu"].value_or(822);
@@ -113,7 +113,7 @@ int parse_config(const toml::table &toml_cfg, tunthread_cfg &tun)
         const toml::table *peer = it->as_table();
 
         tunthread_peer p;
-        std::optional<std::string> callsign = peer->at_path("callsign").value<std::string>();
+        std::optional<std::string_view> callsign = peer->at_path("callsign").value<std::string_view>();
         if(callsign.has_value())
         {
             p.callsign = callsign.value();
@@ -122,9 +122,10 @@ int parse_config(const toml::table &toml_cfg, tunthread_cfg &tun)
         else
         {
             std::cerr << "Missing callsign in peer " << *peer << std::endl;
+            continue;
         }
 
-        std::optional<std::string> ip = peer->at_path("ip").value<std::string>();
+        std::optional<std::string_view> ip = peer->at_path("ip").value<std::string_view>();
         if(ip.has_value())
         {
             p.ip = ip.value();
@@ -133,6 +134,7 @@ int parse_config(const toml::table &toml_cfg, tunthread_cfg &tun)
         else
         {
             std::cerr << "Missing IP in peer " << *peer << std::endl;
+            continue;
         }
 
         const toml::array *routes = peer->at_path("routes").as_array();
@@ -150,6 +152,8 @@ int parse_config(const toml::table &toml_cfg, tunthread_cfg &tun)
                 std::cout << "added route " << p.routes.back() << " for peer " << p.callsign << std::endl;
             }
         }
+
+        tun.peers.push_back(p);
     }
 
 

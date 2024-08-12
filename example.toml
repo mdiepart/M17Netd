@@ -1,0 +1,17 @@
+[general]
+callsign="ON4MOD-1"
+
+[general.net_if]
+name="m17d"
+ip="172.16.0.1"
+MTU=822
+
+[[peers]]
+callsign="ON4MOD-2"
+ip="172.16.0.2"
+routes=["172.16.0.2/28"]
+
+[[peers]]
+callsign="ON4MOD-3"
+ip="172.16.0.16"
+routes=["172.16.0.16/28"]

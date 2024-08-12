@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
     memset(&sigint_handler, 0, sizeof(struct sigaction));
     sigint_handler.sa_handler = sigint_catcher;
     sigemptyset(&sigint_handler.sa_mask);
-    sigint_handler.sa_flags = 0;// &= ~(SA_RESTART);
+    sigint_handler.sa_flags = 0;
     sigaction(SIGINT, &sigint_handler, 0);
 
     // Wait for threads to terminate
@@ -97,15 +97,59 @@ int parse_config(const toml::table &toml_cfg, tunthread_cfg &tun)
     tun.ip = toml_cfg["general"]["net_if"]["ip"].value_or("172.16.0.128");
     tun.peers = std::vector<tunthread_peer>();
 
-    const toml::array *peers = toml_cfg["general"]["net_if"]["peers"].as_array();
+    const toml::array &peers = *toml_cfg.get_as<toml::array>("peers");
 
-    for(auto it = peers->cbegin(); it != peers->cend(); it++)
+    if(&peers == nullptr){
+        std::cerr << "No peers found in configuration file" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    std::cout << "Config file contains " << peers.size() << " peers." <<  std::endl;
+
+    //for(std::size_t i = 0; i < peers.size(); i++)
+    for(auto it = peers.begin(); it < peers.end(); it++)
     {
-        tunthread_peer p;
-        // WIP
-        // *it["callsign"]
+        //const toml::table *table = peers[i].as_table();
+        const toml::table *peer = it->as_table();
 
-        // std::cout << "Adding peer with callsign " << it.
+        tunthread_peer p;
+        std::optional<std::string> callsign = peer->at_path("callsign").value<std::string>();
+        if(callsign.has_value())
+        {
+            p.callsign = callsign.value();
+            std::cout << "Added peer with callsign " << p.callsign << std::endl;
+        }
+        else
+        {
+            std::cerr << "Missing callsign in peer " << *peer << std::endl;
+        }
+
+        std::optional<std::string> ip = peer->at_path("ip").value<std::string>();
+        if(ip.has_value())
+        {
+            p.ip = ip.value();
+            std::cout << "Added ip " << p.ip << " for peer " << p.callsign <<  std::endl;
+        }
+        else
+        {
+            std::cerr << "Missing IP in peer " << *peer << std::endl;
+        }
+
+        const toml::array *routes = peer->at_path("routes").as_array();
+        if(routes == nullptr)
+        {
+            std::cerr << "Missing routes in peer " << *peer << std::endl;
+        }
+        else
+        {
+            p.routes = std::vector<std::string_view>();
+
+            for(auto r = routes->cbegin(); r < routes->cend(); r++)
+            {
+                p.routes.push_back(r->value_or(""));
+                std::cout << "added route " << p.routes.back() << " for peer " << p.callsign << std::endl;
+            }
+        }
     }
 
 

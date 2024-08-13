@@ -1,5 +1,6 @@
 #include <thread>
 #include <iostream>
+#include <iomanip>
 #include <sstream>
 #include <fstream>
 #include <atomic>
@@ -59,12 +60,13 @@ void tunthread::operator()(std::atomic_bool &running, tunthread_cfg &if_cfg)
         else{
             ss << "Received packet with content: ";
 
-            for(auto it = packet.begin(); it < packet.end(); it++)
+            for(auto const &v : packet)
             {
-                ss << std::hex << *it << ", ";
+                ss << std::setfill('0') << std::setw(sizeof(v) * 2)
+                << std::hex << +v << ", ";
             }
 
-            std::cout << ss.str() << std::endl;
+            std::cout << ss.str() << "\n" << std::endl;
         }
         
     }

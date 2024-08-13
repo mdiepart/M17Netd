@@ -95,27 +95,29 @@ std::vector<uint8_t> TunDevice::getPacket(std::atomic<bool> &running)
     struct timespec read_timeout = {.tv_sec = 1, .tv_nsec = 0}; // 1 sec timeout
     bool loop = true;
     std::size_t n = 0;
-
     fd_set read_fdset;
-    FD_ZERO(&read_fdset);
-    FD_SET(tun_fd, &read_fdset);
 
     while(loop && running)
     {
-        int ret = pselect(1, &read_fdset, nullptr, nullptr, &read_timeout, 0);
-        if(ret < 0){
-            std::cout << "Tun thread: pselect error, errno=" << errno << std::endl;
+        FD_ZERO(&read_fdset);
+        FD_SET(tun_fd, &read_fdset);
+        
+        int ret = pselect(tun_fd+1, &read_fdset, nullptr, nullptr, &read_timeout, nullptr);
+        if(ret < 0)
+        {
+            std::cout << "Tun thread: pselect error (" << strerror(errno) << ")." << std::endl;
             loop = false;
         }
         else if(ret == 0)
         {
             // Pselect timed out, retry
-            std::cout << "tun to..." << std::endl;
-            continue;
+            continue;            
         }
-        else if(ret == 1)
+        else
         {
-            n = read(sock_fd, storage, mtu + 32);
+            // tun_fd is the only filedescriptor monitored so if we arrive 
+            // here it will always be set, no need to check.
+            n = read(tun_fd, storage, mtu + 32);
             loop = false;
         }
     }

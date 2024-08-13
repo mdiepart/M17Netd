@@ -39,13 +39,7 @@ void tunthread::operator()(std::atomic_bool &running, tunthread_cfg &if_cfg)
     std::cout << "TunThread has following peers:" << std::endl;
     for(auto const &p : if_cfg.peers)  
     {
-        std::cout << "-" << p.callsign << " @ " << p.ip
-                  << "\n\tRoutes:\n";
-        for(auto const &r : p.routes)
-        {
-            std::cout << "\t\t" << r;
-        }
-        std::cout << std::endl;
+        interface.addRoutesForPeer(p);
     }
 
     bool reading = true;

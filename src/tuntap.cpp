@@ -23,7 +23,7 @@
 #include <sys/types.h>
 #include <net/route.h>
 
-
+#include "tunthread.h"
 #include "tuntap.h"
 
 #define ifreq_offsetof(x)  offsetof(struct ifreq, x)
@@ -50,7 +50,7 @@ TunDevice::TunDevice(const std::string_view name)
      *
      *        IFF_NO_PI - Do not provide packet information
      */
-    ifr.ifr_flags = IFF_TUN | IFF_NO_CARRIER;
+    ifr.ifr_flags = IFF_TUN;
 
     // if a name was given, copy it in the init structure
     if( *dev )
@@ -110,6 +110,7 @@ std::vector<uint8_t> TunDevice::getPacket(std::atomic<bool> &running)
         else if(ret == 0)
         {
             // Pselect timed out, retry
+            std::cout << "tun to..." << std::endl;
             continue;
         }
         else if(ret == 1)
@@ -168,9 +169,9 @@ void TunDevice::setUpDown(bool up)
     ioctl(sock_fd, SIOCGIFFLAGS, (void *)&ifr);
     
     if(up)
-        ifr.ifr_flags |= (IFF_UP | IFF_RUNNING);
+        ifr.ifr_flags |= (IFF_UP | IFF_RUNNING | IFF_NO_CARRIER);
     else
-        ifr.ifr_flags &= ~(IFF_UP | IFF_RUNNING);
+        ifr.ifr_flags &= ~(IFF_UP | IFF_RUNNING | IFF_NO_CARRIER);
 
     err = ioctl(sock_fd, SIOCSIFFLAGS, (void *)&ifr); // Apply new up/down status
 
@@ -204,7 +205,102 @@ void TunDevice::setMTU(int size)
     }
 }
 
-void TunDevice::addRoute(std::string_view route)
+
+int TunDevice::addRoutesForPeer(const tunthread_peer &peer)
 {
     struct rtentry rt;
+    struct sockaddr_in dst;
+    struct sockaddr_in gw;
+    struct sockaddr_in netmask;
+    int ret;
+
+    memset(&rt, 0, sizeof(struct rtentry));
+    memset(&dst, 0, sizeof(struct sockaddr));
+    memset(&gw, 0, sizeof(struct sockaddr));
+    memset(&netmask, 0, sizeof(struct sockaddr));
+    
+    dst.sin_family = AF_INET;
+    gw.sin_family = AF_INET;
+    netmask.sin_family = AF_INET;
+
+    // Device name
+    char if_name[IFNAMSIZ] = {0};
+    strncpy(if_name, ifName.c_str(), IFNAMSIZ);
+    rt.rt_dev = if_name;
+
+    std::cout << "Adding routes for peer " << peer.callsign << std::endl;
+
+    // Add route to peer first (as host route)
+    gw.sin_addr.s_addr = inet_addr(peer.ip.data());
+    memcpy(&rt.rt_dst, &gw, sizeof(struct sockaddr));
+    rt.rt_flags |= RTF_HOST;
+
+    // Syscall to add host
+    ret = ioctl(sock_fd, SIOCADDRT, &rt);
+    if(ret < 0)
+    {
+        std::cerr << "Unable to add route to peer as host. ioctl error (" << strerror(errno) << ")." << std::endl;
+        return EXIT_FAILURE;
+    }
+    else
+    {
+        std::cout << "Added route to peer as host." << std::endl;
+    }
+
+    rt.rt_flags &= ~(RTF_HOST);
+    rt.rt_flags |= RTF_GATEWAY;
+
+    // Add all other routes that use this peer as gateway
+    memcpy(&rt.rt_gateway, &gw, sizeof(struct sockaddr));
+    for(auto const &r : peer.routes)
+    {
+        // Parse the CIDR netmask length
+        std::size_t idx = r.find_first_of('/');
+        
+        if(idx == std::string::npos){ 
+            std::cerr << "No netmask length specified for route " << r << std::endl;
+            return EXIT_FAILURE;
+        }
+
+        // Check that mask is not malformed
+        std::string_view mask = r.substr(idx+1);
+        int cidr_mask = 0;
+        try
+        {
+            cidr_mask = std::stoi(mask.data());
+        }
+        catch(const std::out_of_range& e)
+        {
+            std::cerr << "Invalid CIDR mask in route " << r << std::endl;
+            return EXIT_FAILURE;
+        }
+
+        if(cidr_mask < 0 || cidr_mask > 32)
+        {
+            std::cerr << "Invalid CIDR mask in route " << r << std::endl;
+            return EXIT_FAILURE;    
+        }
+
+        // Convert from cidr to proper net mask
+        uint32_t bin_mask = 0xFFFFFFFF << (32-cidr_mask);
+        netmask.sin_addr.s_addr = htonl(bin_mask);
+        memcpy(&rt.rt_genmask, &netmask, sizeof(struct sockaddr));
+
+        // Add route as dst
+        dst.sin_addr.s_addr = inet_addr(std::string(r.substr(0, idx)).c_str());
+        dst.sin_family = AF_INET;
+        memcpy(&rt.rt_dst, &dst, sizeof(struct sockaddr));
+
+        std::cout << "Adding route " << r << " to " << ifName << " routes." << std::endl;
+    
+        int ret = ioctl(sock_fd, SIOCADDRT, &rt);
+        if(ret < 0)
+        {
+            std::cerr << "Could not add route \"" << r 
+            << "\": ioctl error (" << strerror(errno) << ")." << std::endl;
+            return EXIT_FAILURE;
+        }
+    }
+    
+    return EXIT_SUCCESS;
 }

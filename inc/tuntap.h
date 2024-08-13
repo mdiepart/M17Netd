@@ -6,6 +6,8 @@
 
 #include <sys/socket.h>
 
+#include "tunthread.h"
+
 class TunDevice {
 
     public:
@@ -16,7 +18,7 @@ class TunDevice {
     void setIPV4(std::string_view ip);
     void setUpDown(bool up);
     void setMTU(int mtu);
-    void addRoute(std::string_view route);
+    int addRoutesForPeer(const tunthread_peer &peer);
 
     private:
 

@@ -2,11 +2,13 @@
 #include <thread>
 #include <atomic>
 #include <csignal>
+#include "ConsumerProducer.h"
 
 #define TOML_HEADER_ONLY 0
 #include <toml++/toml.hpp>
 
 #include "tunthread.h"
+#include "radio_thread.h"
 
 std::atomic<bool> running; // Signals to the threads that program must stop and exit
 
@@ -25,6 +27,9 @@ int main(int argc, char *argv[])
 {
     std::string config_file;
     toml::table config_tbl;
+    tunthread_cfg net_if_cfg;
+    radio_thread_cfg radio_cfg;
+
     std::cout << "Starting M17Netd" << std::endl;
 
     // Parse input arguments
@@ -65,15 +70,19 @@ int main(int argc, char *argv[])
     }
 
     // Extract configs
-    tunthread_cfg net_if_cfg;
     parse_tun_config(config_tbl, net_if_cfg);
+    
+    std::size_t txQueueSize = config_tbl["general"]["tx_queue_size"].value_or(64);
+    std::size_t rxQueueSize = config_tbl["general"]["rx_queue_size"].value_or(64);
+    ConsumerProducerQueue<std::shared_ptr<std::vector<uint8_t>>> toRadio(txQueueSize);
+    ConsumerProducerQueue<std::shared_ptr<std::vector<uint8_t>>> toNet(rxQueueSize);
 
-    std::cout << "Config parsed, if_name=" << net_if_cfg.name << std::endl;
-
+    
     // Start threads
     running = true;
 
-    std::thread tuntap = std::thread(tunthread(), std::ref(running), std::ref(net_if_cfg));
+    std::thread tuntap = std::thread(tunthread(), std::ref(running), std::ref(net_if_cfg), std::ref(toRadio));
+    std::thread radio = std::thread(radio_simplex(), std::ref(running), std::ref(radio_cfg), std::ref(toRadio), std::ref(toNet));
 
     struct sigaction sigint_handler;
     memset(&sigint_handler, 0, sizeof(struct sigaction));
@@ -84,8 +93,9 @@ int main(int argc, char *argv[])
 
     // Wait for threads to terminate
     tuntap.join();
-
     std::cout << "tuntap thread stopped" << std::endl;
+    radio.join();
+    std::cout << "radio thread stopped" << std::endl;
 
     return EXIT_SUCCESS;
 }
@@ -159,3 +169,4 @@ int parse_tun_config(const toml::table &toml_cfg, tunthread_cfg &tun)
 
     return EXIT_SUCCESS;    
 }
+

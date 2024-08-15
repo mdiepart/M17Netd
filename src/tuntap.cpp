@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstdbool>
 #include <cstdlib>
+#include <memory>
 
 #include <errno.h>
 #include <fcntl.h>
@@ -50,7 +51,7 @@ TunDevice::TunDevice(const std::string_view name)
      *
      *        IFF_NO_PI - Do not provide packet information
      */
-    ifr.ifr_flags = IFF_TUN;
+    ifr.ifr_flags = IFF_TUN | IFF_NO_PI;
 
     // if a name was given, copy it in the init structure
     if( *dev )
@@ -89,9 +90,10 @@ TunDevice::~TunDevice()
     close(sock_fd);
 }
 
-std::vector<uint8_t> TunDevice::getPacket(std::atomic<bool> &running)
+std::shared_ptr<std::vector<uint8_t>> TunDevice::getPacket(std::atomic<bool> &running)
 {    
-    uint8_t storage[mtu + 32];
+    uint8_t storage[mtu];
+
     struct timespec read_timeout = {.tv_sec = 1, .tv_nsec = 0}; // 1 sec timeout
     bool loop = true;
     std::size_t n = 0;
@@ -117,18 +119,20 @@ std::vector<uint8_t> TunDevice::getPacket(std::atomic<bool> &running)
         {
             // tun_fd is the only filedescriptor monitored so if we arrive 
             // here it will always be set, no need to check.
-            n = read(tun_fd, storage, mtu + 32);
+            n = read(tun_fd, storage, mtu);
             loop = false;
         }
     }
 
     if(n <= 0)
     {
-        return std::vector<uint8_t>();
+        return std::shared_ptr<std::vector<uint8_t>>(new std::vector<uint8_t>());
     }
     else
     {
-        return std::vector<uint8_t>(storage, storage + n);
+        std::cout << "GetPacket read " << n << " bytes." << std::endl;
+        //return std::make_shared<std::vector<uint8_t>>(storage, storage+n);
+        return std::shared_ptr<std::vector<uint8_t>>(new std::vector<uint8_t>(storage, storage+n));
     }
     
 }

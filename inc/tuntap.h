@@ -5,7 +5,7 @@
 #include <cstdint>
 
 #include <sys/socket.h>
-
+#include <netinet/ip.h>
 #include "tunthread.h"
 
 class TunDevice {
@@ -14,7 +14,7 @@ class TunDevice {
     TunDevice(const std::string_view name);
     ~TunDevice();
     
-    std::vector<uint8_t> getPacket(std::atomic<bool> &running);
+    std::shared_ptr<std::vector<uint8_t>> getPacket(std::atomic<bool> &running);
     void setIPV4(std::string_view ip);
     void setUpDown(bool up);
     void setMTU(int mtu);

@@ -1,18 +1,20 @@
-#include <thread>
 #include <iostream>
-#include <iomanip>
-#include <sstream>
-#include <fstream>
+//#include <fstream>
 #include <atomic>
 #include <vector>
 #include <cstdint>
 #include <cstdbool>
+#include <memory>
+
+#include <linux/if_tun.h>
+#include <netinet/ip.h>
 
 #include "tunthread.h"
 #include "tuntap.h"
+#include "ConsumerProducer.h"
 
-
-void tunthread::operator()(std::atomic_bool &running, tunthread_cfg &if_cfg)
+void tunthread::operator()(std::atomic_bool &running, tunthread_cfg &if_cfg,
+                           ConsumerProducerQueue<std::shared_ptr<std::vector<uint8_t>>> &toRadio)
 {
     int err;
 
@@ -37,37 +39,31 @@ void tunthread::operator()(std::atomic_bool &running, tunthread_cfg &if_cfg)
     interface.setUpDown(true); // Up  
 
     // Process peers
-    std::cout << "TunThread has following peers:" << std::endl;
     for(auto const &p : if_cfg.peers)  
     {
         interface.addRoutesForPeer(p);
     }
 
-    bool reading = true;
-
-    std::stringstream ss;
-    std::vector<uint8_t> packet;
+    std::shared_ptr<std::vector<uint8_t>> packet;
 
     // Thread loop
     while( running )
     {
         packet = interface.getPacket(std::ref(running));
-        if(packet.empty())
+        
+        if(packet->empty())
         {
-            reading=false;
             std::cout << "getPacket returned an empty vector. Errno = " << errno << std::endl;
         }
         else{
-            ss << "Received packet with content: ";
-
-            for(auto const &v : packet)
-            {
-                ss << std::setfill('0') << std::setw(sizeof(v) * 2)
-                << std::hex << +v << ", ";
-            }
-
-            std::cout << ss.str() << "\n" << std::endl;
-        }
+            struct ip *pkt = reinterpret_cast<struct ip *>(packet->data());
         
+            if(pkt->ip_v != 4)
+            {
+                std::cerr << "Received an IP packet which is not ip V4" << std::endl;
+            }else{
+                toRadio.add(packet);
+            }
+        }
     }
 }

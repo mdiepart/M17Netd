@@ -6,6 +6,8 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "ConsumerProducer.h"
+#include <memory>
 
 typedef struct
 {
@@ -24,5 +26,6 @@ typedef struct
 
 class tunthread {
     public:
-    void operator()(std::atomic_bool &running, tunthread_cfg &if_cfg);
+    void operator()(std::atomic_bool &running, tunthread_cfg &if_cfg,
+                    ConsumerProducerQueue<std::shared_ptr<std::vector<uint8_t>>> &toRadio);
 };

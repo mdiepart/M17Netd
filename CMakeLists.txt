@@ -12,6 +12,7 @@ set(m17netd_src
     src/m17netd.cpp
 	src/tuntap.cpp
 	src/tunthread.cpp
+	src/radio_thread.cpp
 )
 
 find_package(tomlplusplus CONFIG REQUIRED)

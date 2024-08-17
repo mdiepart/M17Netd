@@ -1,7 +1,8 @@
 #ifndef __CONSUMERPRODUCERQUEUE_H__
 #define __CONSUMERPRODUCERQUEUE_H__
 
-#include <stdio.h>
+#include <iostream>
+#include <string>
 #include <queue>
 #include <mutex>
 #include <condition_variable>
@@ -12,7 +13,7 @@
  * I have no idea who wrote the following file, who to credit or
  * the license under which it is published.
  * 
- * This file was slightly modified to include timeouts
+ * This file was slightly modified to include timeouts and fix compilation errors
  * 
  * Morgan Diepart 08/2024
  */
@@ -63,9 +64,13 @@ public:
     {
         int L = 0 ;
         std::unique_lock<std::mutex> lock(mutex);
-        cond.wait(lock, [this]() { 
-                return !isFull(); 
+        auto res = cond.wait_for(lock, timeout, [this]() { 
+            return !isFull(); 
         });
+        if(res == false)
+        {
+            return -1; // Timed-out
+        }
         cpq.push(request); 
         L = cpq.size();
         lock.unlock();

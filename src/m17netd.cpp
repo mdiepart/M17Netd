@@ -9,6 +9,7 @@
 
 #include "tunthread.h"
 #include "radio_thread.h"
+#include "m17tx_thread.h"
 
 std::atomic<bool> running; // Signals to the threads that program must stop and exit
 
@@ -74,6 +75,7 @@ int main(int argc, char *argv[])
     
     std::size_t txQueueSize = config_tbl["general"]["tx_queue_size"].value_or(64);
     std::size_t rxQueueSize = config_tbl["general"]["rx_queue_size"].value_or(64);
+    ConsumerProducerQueue<std::shared_ptr<std::vector<uint8_t>>> fromNet(txQueueSize);
     ConsumerProducerQueue<std::shared_ptr<std::vector<uint8_t>>> toRadio(txQueueSize);
     ConsumerProducerQueue<std::shared_ptr<std::vector<uint8_t>>> toNet(rxQueueSize);
 
@@ -81,8 +83,9 @@ int main(int argc, char *argv[])
     // Start threads
     running = true;
 
-    std::thread tuntap = std::thread(tunthread(), std::ref(running), std::ref(net_if_cfg), std::ref(toRadio));
+    std::thread tuntap = std::thread(tunthread(), std::ref(running), std::ref(net_if_cfg), std::ref(fromNet));
     std::thread radio = std::thread(radio_simplex(), std::ref(running), std::ref(radio_cfg), std::ref(toRadio), std::ref(toNet));
+    std::thread m17tx = std::thread(m17tx_thread(), std::ref(running), std::ref(net_if_cfg.peers), std::ref(fromNet), std::ref(toRadio));
 
     struct sigaction sigint_handler;
     memset(&sigint_handler, 0, sizeof(struct sigaction));
@@ -96,6 +99,8 @@ int main(int argc, char *argv[])
     std::cout << "tuntap thread stopped" << std::endl;
     radio.join();
     std::cout << "radio thread stopped" << std::endl;
+    m17tx.join();
+    std::cout << "M17 tx thread stopped" << std::endl;
 
     return EXIT_SUCCESS;
 }

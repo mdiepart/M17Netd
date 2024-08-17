@@ -29,7 +29,7 @@
 
 #define ifreq_offsetof(x)  offsetof(struct ifreq, x)
 
-TunDevice::TunDevice(const std::string_view name)
+TunDevice::TunDevice(const std::string_view &name)
 {
     const char *dev = name.data();
 
@@ -130,11 +130,8 @@ std::shared_ptr<std::vector<uint8_t>> TunDevice::getPacket(std::atomic<bool> &ru
     }
     else
     {
-        std::cout << "GetPacket read " << n << " bytes." << std::endl;
-        //return std::make_shared<std::vector<uint8_t>>(storage, storage+n);
         return std::shared_ptr<std::vector<uint8_t>>(new std::vector<uint8_t>(storage, storage+n));
     }
-    
 }
 
 void TunDevice::setIPV4(std::string_view ip)

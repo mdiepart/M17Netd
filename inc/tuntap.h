@@ -11,7 +11,7 @@
 class TunDevice {
 
     public:
-    TunDevice(const std::string_view name);
+    TunDevice(const std::string_view &name);
     ~TunDevice();
     
     std::shared_ptr<std::vector<uint8_t>> getPacket(std::atomic<bool> &running);

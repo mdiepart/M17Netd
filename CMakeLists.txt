@@ -23,7 +23,18 @@ add_executable(M17Netd ${m17netd_src})
 target_include_directories(M17Netd PUBLIC
 			   ${PROJECT_SOURCE_DIR}/inc
 		   	  )
-# ${tomlplusplus_INCLUDE_DIRS}
+
+target_compile_options(M17Netd PRIVATE
+	-Wall
+
+	$<$<CONFIG:Debug>:
+		-g
+	>	
+
+	$<$<CONFIG:Release>:
+		-o2
+	>
+	)
 
 set(BUILD_STATIC_LIB ON)
 add_subdirectory(lib/libm17)

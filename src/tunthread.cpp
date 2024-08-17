@@ -1,5 +1,4 @@
 #include <iostream>
-//#include <fstream>
 #include <atomic>
 #include <vector>
 #include <cstdint>
@@ -16,15 +15,13 @@
 void tunthread::operator()(std::atomic_bool &running, tunthread_cfg &if_cfg,
                            ConsumerProducerQueue<std::shared_ptr<std::vector<uint8_t>>> &toRadio)
 {
-    int err;
-
     std::cout << "Tun thread starting. Configuration:"
     << "\n\tInterface name: " << if_cfg.name << "%d"
     << "\n\tInterface IP: " << if_cfg.ip
     << "\n\tInterface MTU: " << if_cfg.mtu << std::endl;
 
     // Parse toml configuration
-    std::string_view name = std::string(if_cfg.name) + "%d";
+    std::string name = std::string(if_cfg.name) + "%d";
 
     // Setting-up thread
     TunDevice interface(name);
@@ -53,7 +50,7 @@ void tunthread::operator()(std::atomic_bool &running, tunthread_cfg &if_cfg,
         
         if(packet->empty())
         {
-            std::cout << "getPacket returned an empty vector. Errno = " << errno << std::endl;
+            std::cerr << "getPacket returned an empty vector. Errno = " << errno << std::endl;
         }
         else{
             struct ip *pkt = reinterpret_cast<struct ip *>(packet->data());

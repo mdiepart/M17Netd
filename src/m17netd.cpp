@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
         if(argc > 2)
         {
             std::cerr << "Ignoring additional options ";
-            for(std::size_t i = 2; i < argc; i++)
+            for(int i = 2; i < argc; i++)
             {
                 std::cerr << "\"" << argv[i] << "\"";
                 if(i < argc-1)
@@ -114,7 +114,7 @@ int parse_tun_config(const toml::table &toml_cfg, tunthread_cfg &tun)
 
     const toml::array &peers = *toml_cfg.get_as<toml::array>("peers");
 
-    if(&peers == nullptr){
+    if(peers.empty()){
         std::cerr << "No peers found in configuration file" << std::endl;
         return EXIT_FAILURE;
     }

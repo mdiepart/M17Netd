@@ -18,7 +18,7 @@ class TunDevice {
     void setIPV4(std::string_view ip);
     void setUpDown(bool up);
     void setMTU(int mtu);
-    int addRoutesForPeer(const tunthread_peer &peer);
+    int addRoutesForPeer(const peer_t &peer);
 
     private:
 

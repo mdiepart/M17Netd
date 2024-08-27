@@ -1,5 +1,7 @@
 [general]
 callsign="ON4MOD-1"
+tx_queue_size=64
+rx_queue_size=64
 
 [general.net_if]
 name="m17d"

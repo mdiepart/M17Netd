@@ -11,10 +11,14 @@
 #include "tunthread.h"
 #include "tuntap.h"
 #include "ConsumerProducer.h"
+#include "config.h"
 
-void tunthread::operator()(std::atomic_bool &running, tunthread_cfg &if_cfg,
+void tunthread::operator()(std::atomic_bool &running, const config &cfg,
                            ConsumerProducerQueue<std::shared_ptr<std::vector<uint8_t>>> &toRadio)
 {
+    tunthread_cfg if_cfg;
+    cfg.getTunConfig(if_cfg);
+
     std::cout << "Tun thread starting. Configuration:"
     << "\n\tInterface name: " << if_cfg.name << "%d"
     << "\n\tInterface IP: " << if_cfg.ip

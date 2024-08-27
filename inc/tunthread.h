@@ -9,23 +9,10 @@
 #include "ConsumerProducer.h"
 #include <memory>
 
-typedef struct
-{
-    std::string_view callsign;
-    std::string_view ip;
-    std::vector<std::string_view> routes;
-} tunthread_peer;
-
-typedef struct
-{
-    std::string_view    name;
-    std::string_view    ip;
-    std::size_t         mtu;
-    std::vector<tunthread_peer> peers;
-} tunthread_cfg;
+#include "config.h"
 
 class tunthread {
     public:
-    void operator()(std::atomic_bool &running, tunthread_cfg &if_cfg,
-                    ConsumerProducerQueue<std::shared_ptr<std::vector<uint8_t>>> &toRadio);
+    void operator()(std::atomic_bool &running, const config &cfg,
+                    ConsumerProducerQueue<std::shared_ptr<std::vector<uint8_t>>> &from_net);
 };

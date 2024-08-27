@@ -8,17 +8,14 @@
 #include <vector>
 #include "ConsumerProducer.h"
 
-using namespace std;
+#include "m17tx.h"
+#include "config.h"
 
-typedef struct
-{
-    unsigned long tx_freq;
-    unsigned long rx_freq;
-} radio_thread_cfg;
+using namespace std;
 
 class radio_simplex {
     public:
-    void operator()(std::atomic_bool &running, radio_thread_cfg &radio_cfg,
+    void operator()(std::atomic_bool &running, const config &cfg,
                     ConsumerProducerQueue<shared_ptr<vector<uint8_t>>> &fromNet,
                     ConsumerProducerQueue<shared_ptr<vector<uint8_t>>> &fromRadio);
 };

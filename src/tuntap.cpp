@@ -209,7 +209,7 @@ void TunDevice::setMTU(int size)
 }
 
 
-int TunDevice::addRoutesForPeer(const tunthread_peer &peer)
+int TunDevice::addRoutesForPeer(const peer_t &peer)
 {
     struct rtentry rt;
     struct sockaddr_in dst;

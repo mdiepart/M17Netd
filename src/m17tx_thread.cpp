@@ -15,6 +15,7 @@
 #include <chrono>
 
 //#include <lib/libm17/m17.h>
+#include "config.h"
 
 using namespace std;
 
@@ -118,10 +119,12 @@ class m17_route
     in_addr route;
 };
 
-void m17tx_thread::operator()(atomic_bool &running, const vector<tunthread_peer> &peers, 
+void m17tx_thread::operator()(atomic_bool &running, const config &cfg,
                     ConsumerProducerQueue<shared_ptr<vector<uint8_t>>> &fromNet,
                     ConsumerProducerQueue<shared_ptr<vector<uint8_t>>> &toRadio)
 {
+    vector<peer_t> peers = cfg.getPeers();
+    const string_view src_callsign = cfg.getCallsign();
     map<m17_route, string> callsign_map;
 
     // Parse peers in a map

@@ -14,16 +14,17 @@
 #include "ConsumerProducer.h"
 
 #include "radio_thread.h"
+#include "config.h"
 
 using namespace std;
 
-void radio_simplex::operator()(atomic_bool &running, radio_thread_cfg &radio_cfg,
+void radio_simplex::operator()(atomic_bool &running, const config &cfg,
                     ConsumerProducerQueue<shared_ptr<vector<uint8_t>>> &fromNet,
                     ConsumerProducerQueue<shared_ptr<vector<uint8_t>>> &fromRadio)
 {
-    // Set-up
-    // Set frequencies and various other radio settings
-
+    radio_thread_cfg radio_cfg;
+    cfg.getRadioConfig(radio_cfg);
+    
     // For now, this threads gets packets from the network and display them
 
     shared_ptr<vector<uint8_t>> packet;

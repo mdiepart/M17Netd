@@ -28,7 +28,7 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
     // For now, this threads gets packets from the network and display them
 
     shared_ptr<m17tx> packet;
-
+    //size_t i = 0;
     while(running)
     {
         int ret = to_radio.consume(packet);
@@ -38,18 +38,41 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
             continue;
         }
 
-        struct ip *pkt = reinterpret_cast<struct ip *>(packet->data());
-        
-        std::cout << "Received packet from network. Length of " << ntohs(pkt->ip_len) << "." << std::endl;
-        /*ss.str(std::string());
-            ss << "Received packet with content: ";
-            for(auto const &v : *packet)
+        std::cout << "Received packet for radio." << std::endl;
+        /*string filename_bb = "./" + to_string(i) + ".csv";
+        string filename_sym = "./" + to_string(i) + "_sym.csv";
+        ofstream my_file_bb(filename_bb);
+        ofstream my_file_sym(filename_sym);
+        float t_bb = 0;
+        float t_sym = 0;
+        constexpr size_t chunk = 1000;
+
+        my_file_bb << "Time(s), Value" << endl;
+        my_file_sym << "Time(s), Symbol" << endl;
+        while(true)
+        {
+            vector<float> samples = packet->getBasebandSamples(chunk);
+            //cout << "Got " << to_string(samples.size()) << " baseband samples." << endl;
+
+            for(auto const &s: samples)
             {
-                ss << std::setfill('0') << std::setw(sizeof(v) * 2)
-                << std::hex << +v << ", ";
+                my_file_bb << t_bb << ", " << s << endl;
+                t_bb += (1.0f/96000.0f);
             }
 
-            std::cout << ss.str() << "\n" << std::endl;*/
+            if(samples.size() < chunk)
+            {
+                break;
+            }
+        }
+        for(auto &sym: packet->getSymbols())
+        {
+            my_file_sym << t_sym << ", " << sym << endl;
+            t_sym += (1.0f/4800.0f);
+        }
+        i++;
+        my_file_bb.close();
+        my_file_sym.close();*/
     }
     
 }

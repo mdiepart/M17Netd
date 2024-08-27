@@ -159,7 +159,7 @@ void m17tx_thread::operator()(atomic_bool &running, const config &cfg,
 
 
     // Test for a few routes
-    const char *addrs[8] = {"127.0.0.1",
+    /*const char *addrs[8] = {"127.0.0.1",
                      "172.16.0.1", "172.16.0.2",
                      "172.16.0.8", "172.16.0.9",
                      "172.16.0.16", "172.16.0.17",
@@ -177,7 +177,7 @@ void m17tx_thread::operator()(atomic_bool &running, const config &cfg,
         else{
             std::cout << "Destination callsign for ip " << addrs[i] << " is " << test->second << std::endl;
         }
-    }
+    }*/
 
     while(running)
     {

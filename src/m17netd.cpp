@@ -7,6 +7,7 @@
 #include "tunthread.h"
 #include "radio_thread.h"
 #include "m17tx_thread.h"
+#include "m17tx.h"
 
 std::atomic<bool> running; // Signals to the threads that program must stop and exit
 

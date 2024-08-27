@@ -14,8 +14,11 @@
 #include <thread>
 #include <chrono>
 
-//#include <lib/libm17/m17.h>
+#include <m17.h>
+
 #include "config.h"
+
+#include "m17tx.h"
 
 using namespace std;
 
@@ -120,8 +123,8 @@ class m17_route
 };
 
 void m17tx_thread::operator()(atomic_bool &running, const config &cfg,
-                    ConsumerProducerQueue<shared_ptr<vector<uint8_t>>> &fromNet,
-                    ConsumerProducerQueue<shared_ptr<vector<uint8_t>>> &toRadio)
+                    ConsumerProducerQueue<shared_ptr<vector<uint8_t>>> &from_net,
+                    ConsumerProducerQueue<shared_ptr<m17tx>> &to_radio)
 {
     vector<peer_t> peers = cfg.getPeers();
     const string_view src_callsign = cfg.getCallsign();
@@ -179,7 +182,7 @@ void m17tx_thread::operator()(atomic_bool &running, const config &cfg,
     while(running)
     {
         shared_ptr<vector<uint8_t>> raw;
-        if(fromNet.consume(raw) < 0)
+        if(from_net.consume(raw) < 0)
         {
             continue;
         }
@@ -193,11 +196,13 @@ void m17tx_thread::operator()(atomic_bool &running, const config &cfg,
         
         if(dst == callsign_map.end())
         {
-            cerr << "Received a packet for \"" << ip << "\" but no route matches this address so no destination callsign could be determined." << endl;
+            cerr << "Received a packet for \"" << ip << "\" but no route matches this address." << endl;
         }
         else
         {
             cout << "Received a packet (len=" << ntohs(packet->ip_len) << ") for " << ip << ". Sending to " << dst->second << "." << endl;
+            shared_ptr<m17tx> baseband_pkt = shared_ptr<m17tx>(new m17tx(src_callsign, dst->second, raw));
+            to_radio.add(baseband_pkt);
         }
     }
 }

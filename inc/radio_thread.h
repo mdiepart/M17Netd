@@ -16,6 +16,6 @@ using namespace std;
 class radio_simplex {
     public:
     void operator()(std::atomic_bool &running, const config &cfg,
-                    ConsumerProducerQueue<shared_ptr<vector<uint8_t>>> &fromNet,
-                    ConsumerProducerQueue<shared_ptr<vector<uint8_t>>> &fromRadio);
+                    ConsumerProducerQueue<shared_ptr<m17tx>> &to_radio,
+                    ConsumerProducerQueue<shared_ptr<vector<uint8_t>>> &from_radio);
 };

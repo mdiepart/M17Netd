@@ -26,13 +26,11 @@ target_include_directories(M17Netd PUBLIC
 
 target_compile_options(M17Netd PRIVATE
 	-Wall
-
 	$<$<CONFIG:Debug>:
 		-g
 	>	
-
 	$<$<CONFIG:Release>:
-		-o2
+		-O2
 	>
 	)
 

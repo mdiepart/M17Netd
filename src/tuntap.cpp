@@ -227,7 +227,7 @@ int TunDevice::addRoutesForPeer(const peer_t &peer)
     netmask.sin_family = AF_INET;
 
     // Device name
-    char if_name[IFNAMSIZ] = {0};
+    char if_name[IFNAMSIZ+1] = {0};
     strncpy(if_name, ifName.c_str(), IFNAMSIZ);
     rt.rt_dev = if_name;
 

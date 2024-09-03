@@ -22,8 +22,9 @@ typedef struct
 
 typedef struct
 {
-    unsigned long tx_freq;
-    unsigned long rx_freq;
+    unsigned long tx_freq; /* TX Frequency */
+    unsigned long rx_freq; /* RX Frequency */
+    float         k;       /* FM Modulation index */
 } radio_thread_cfg;
 
 class config

@@ -6,6 +6,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <liquid/liquid.h>
 #include "ConsumerProducer.h"
 
 #include "m17tx.h"
@@ -18,4 +19,8 @@ class radio_simplex {
     void operator()(std::atomic_bool &running, const config &cfg,
                     ConsumerProducerQueue<shared_ptr<m17tx>> &to_radio,
                     ConsumerProducerQueue<shared_ptr<vector<uint8_t>>> &from_radio);
+
+    private:
+    freqmod fmod;
+    freqdem fdem;
 };

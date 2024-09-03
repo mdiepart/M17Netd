@@ -11,6 +11,8 @@
 
 #include <netinet/ip.h>
 
+#include <liquid/liquid.h>
+
 #include "ConsumerProducer.h"
 
 #include "radio_thread.h"
@@ -25,6 +27,9 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
     radio_thread_cfg radio_cfg;
     cfg.getRadioConfig(radio_cfg);
     
+    // Initialize frequency modulator / demodulator
+    fmod = freqmod_create(radio_cfg.k);
+    fdem = freqdem_create(radio_cfg.k);
     // For now, this threads gets packets from the network and display them
 
     shared_ptr<m17tx> packet;
@@ -74,5 +79,7 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
         my_file_bb.close();
         my_file_sym.close();*/
     }
-    
+
+    freqmod_destroy(fmod);
+    freqdem_destroy(fdem);
 }

@@ -19,6 +19,7 @@ set(m17netd_src
 	src/m17tx.cpp
 	src/config.cpp
 	src/spi.cpp
+	src/sx1255.cpp
 )
 
 find_package(tomlplusplus CONFIG REQUIRED)

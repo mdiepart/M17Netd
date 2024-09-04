@@ -20,6 +20,7 @@ set(m17netd_src
 	src/config.cpp
 	src/spi.cpp
 	src/sx1255.cpp
+	src/sdrnode.cpp
 )
 
 find_package(tomlplusplus CONFIG REQUIRED)
@@ -44,6 +45,7 @@ set(BUILD_STATIC_LIB ON)
 add_subdirectory(lib/libm17)
 
 find_library(liquid_LIB liquid)
+find_package(ALSA REQUIRED)
 
 if(liquid_LIB STREQUAL "liquid-NOTFOUND")
 	message(SEND_ERROR "Libliquid could not be found on your system.")
@@ -53,5 +55,6 @@ target_link_libraries(M17Netd PUBLIC
 				m17-static
 				tomlplusplus
 				${liquid_LIB}
+				${ALSA_LIBRARIES}
 				)
 

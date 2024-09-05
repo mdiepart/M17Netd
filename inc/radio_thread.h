@@ -21,6 +21,7 @@ class radio_simplex {
                     ConsumerProducerQueue<shared_ptr<vector<uint8_t>>> &from_radio);
 
     private:
+    static constexpr size_t block_size = 960; // Samples block size, 10ms of baseband at 96000 kSps
     freqmod fmod;
     freqdem fdem;
 };

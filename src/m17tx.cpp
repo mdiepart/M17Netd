@@ -95,17 +95,17 @@ m17tx::m17tx(const string_view &src, const string_view &dst, const shared_ptr<ve
 
     // 25 bytes max per frame
     unsigned short nb_pkt_frames = (ip_pkt->size()+3)/25 + ((ip_pkt->size()+3)%25)?1:0;
-    data = new vector<float>();
-    data->reserve((nb_pkt_frames+3)*192); // packets + Preamble, LSF, EOT
+    symbols = new vector<float>();
+    symbols->reserve((nb_pkt_frames+3)*192); // packets + Preamble, LSF, EOT
 
     // Insert preample preceding the LSF frame
     send_preamble(frame, &cnt, PREAM_LSF);
-    std::copy(frame, frame+cnt, back_inserter(*data));
+    std::copy(frame, frame+cnt, back_inserter(*symbols));
     cnt = 0;
     
     // Insert LSF frame (includes the syncword)
     send_frame(frame, nullptr, FRAME_LSF, &lsf, 0, 0);
-    std::copy(frame, frame+cnt, back_inserter(*data));
+    std::copy(frame, frame+cnt, back_inserter(*symbols));
     cnt = 0;
 
     uint16_t pkt_crc = CRC_M17(ip_pkt->data(), ip_pkt->size()); // Packet CRC
@@ -140,12 +140,12 @@ m17tx::m17tx(const string_view &src, const string_view &dst, const shared_ptr<ve
         }
 
         send_frame(frame, pkt_data, FRAME_PKT, nullptr, 0, 0);
-        std::copy(frame, frame+SYM_PER_FRA, back_inserter(*data));
+        std::copy(frame, frame+SYM_PER_FRA, back_inserter(*symbols));
         frame_number++;
     }
     
     send_eot(frame, &cnt);
-    std::copy(frame, frame+cnt, back_inserter(*data));
+    std::copy(frame, frame+cnt, back_inserter(*symbols));
     cnt = 0;
 
     // Initialize filt_buff
@@ -153,16 +153,16 @@ m17tx::m17tx(const string_view &src, const string_view &dst, const shared_ptr<ve
     {
         
     }
-    filt_buff[0] = data->at(bb_idx++);
+    filt_buff[0] = symbols->at(bb_idx++);
     filt_offset = 0;
 }
 
 m17tx::~m17tx()
 {
-    delete(data);
+    delete(symbols);
 }
 
-vector<float> m17tx::getBasebandSamples(size_t n)
+vector<float> m17tx::get_baseband_samples(size_t n)
 {
     // Output baseband filtered signal
     vector<float> baseband = vector<float>();
@@ -181,17 +181,21 @@ vector<float> m17tx::getBasebandSamples(size_t n)
                 // Shift non-zero elements
                 filt_buff[j] = filt_buff[j-N];
             }
-            if(bb_idx >= data->size() && bb_idx < data->size()+(nb_taps/N))
+
+            // If we used all symbols, use 0s instead
+            if(bb_idx >= symbols->size() && bb_idx < symbols->size()+(nb_taps/N))
             {
                 filt_buff[0] = 0;
+                bb_idx++;
             }
-            else if(bb_idx >= data->size()+(nb_taps/N))
+            else if(bb_idx >= symbols->size()+(nb_taps/N))
             {
+                cout << "We used all symbols" << endl;
                 break;
             }
             else
             {
-                filt_buff[0] = data->at(bb_idx++);
+                filt_buff[0] = symbols->at(bb_idx++);
             }
             
             filt_offset = N-1;
@@ -203,7 +207,7 @@ vector<float> m17tx::getBasebandSamples(size_t n)
         baseband.push_back(out);
 
         bb_samples++;
-        if(bb_samples >= (data->size() * N)+nb_taps/2)
+        if(bb_samples >= (symbols->size() * N)+nb_taps/2)
         {
             break;
         }
@@ -212,7 +216,12 @@ vector<float> m17tx::getBasebandSamples(size_t n)
     return baseband;
 }
 
-vector<float> m17tx::getSymbols() const
+vector<float> m17tx::get_symbols() const
 {
-    return *data;
+    return *symbols;
+}
+
+size_t m17tx::baseband_samples_left() const
+{
+    return ((symbols->size() * N)+nb_taps/2)-bb_samples;
 }

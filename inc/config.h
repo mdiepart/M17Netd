@@ -1,6 +1,6 @@
 #pragma once
 
-#include <toml++/toml.hpp>
+#include <toml.hpp>
 #include <string>
 
 using namespace std;

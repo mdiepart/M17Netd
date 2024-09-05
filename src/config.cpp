@@ -3,8 +3,7 @@
 #include <vector>
 #include <iostream>
 
-#define TOML_HEADER_ONLY 0
-#include <toml++/toml.hpp>
+#include <toml.hpp>
 
 #include "config.h"
 

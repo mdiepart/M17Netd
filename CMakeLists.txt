@@ -23,13 +23,7 @@ set(m17netd_src
 	src/sdrnode.cpp
 )
 
-find_package(tomlplusplus CONFIG REQUIRED)
-
 add_executable(M17Netd ${m17netd_src})
-
-target_include_directories(M17Netd PUBLIC
-				${PROJECT_SOURCE_DIR}/inc
-				)
 
 target_compile_options(M17Netd PRIVATE
 	-Wall
@@ -41,11 +35,23 @@ target_compile_options(M17Netd PRIVATE
 	>
 	)
 
+FetchContent_Declare(
+    tomlplusplus
+    GIT_REPOSITORY https://github.com/marzer/tomlplusplus.git
+    GIT_TAG v3.4.0
+)
+FetchContent_MakeAvailable(tomlplusplus)
+
 set(BUILD_STATIC_LIB ON)
 add_subdirectory(lib/libm17)
-
 find_library(liquid_LIB liquid)
 find_package(ALSA REQUIRED)
+find_package(Threads REQUIRED)
+
+target_include_directories(M17Netd PUBLIC
+				${PROJECT_SOURCE_DIR}/inc
+				${tomlplusplus_SOURCE_DIR}
+				)
 
 if(liquid_LIB STREQUAL "liquid-NOTFOUND")
 	message(SEND_ERROR "Libliquid could not be found on your system.")
@@ -53,7 +59,7 @@ endif()
 
 target_link_libraries(M17Netd PUBLIC
 				m17-static
-				tomlplusplus
+				Threads::Threads
 				${liquid_LIB}
 				${ALSA_LIBRARIES}
 				)

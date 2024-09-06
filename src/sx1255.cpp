@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <array>
+#include <iostream>
 
 #include "sx1255.h"
 
@@ -183,7 +184,7 @@ uint8_t sx1255_drv::read_version()
 
     int ret = spi.send_recv(buffer.data(), buffer.size());
     
-    if(ret < 1)
+    if(ret < 0)
         return 0;
     
     return buffer[1];

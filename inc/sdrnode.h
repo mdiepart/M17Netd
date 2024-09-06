@@ -20,6 +20,7 @@ class sdrnode
     static constexpr unsigned gpio_TX_lowpower     = 16;
     static constexpr unsigned gpio_bias_enable     = 17;
     static constexpr unsigned gpio_relay_TX        = 55;
+    static constexpr unsigned gpio_SX1255_reset    = 56;
     static constexpr size_t   sysfs_gpio_max_len   = 30;
     static constexpr const char *sysfs_gpio_val    = "/sys/class/gpio/gpio%d/value";
 
@@ -64,7 +65,7 @@ class sdrnode
 
     // SX1255
     static constexpr const char *spi_devname = "/dev/spidev1.0";
-    sx1255_drv sx1255 = sx1255_drv(spi_devname);
+    sx1255_drv sx1255;
 
     /**
      * Sets the GPIOs ready for TX

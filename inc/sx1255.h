@@ -17,6 +17,7 @@
 class sx1255_drv
 {
     public:
+    sx1255_drv();
     sx1255_drv(const string dev_name);
 
     // Enums TX

@@ -130,6 +130,14 @@ sdrnode::sdrnode(const unsigned long rx_freq, const unsigned long tx_freq)
     tx_frequency = tx_freq;
     rx_frequency = rx_freq;
 
+    // Reset SX1255
+    gpio_set_level(gpio_SX1255_reset, true);
+    usleep(100u);
+    gpio_set_level(gpio_SX1255_reset, false);
+    usleep(5000u);
+
+    sx1255 = sx1255_drv(spi_devname);
+
     // Open PCM device for RX
     open_pcm_rx();
 

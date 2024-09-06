@@ -32,6 +32,14 @@ sx1255_drv::sx1255_drv(const string dev_name) : spi(dev_name, SPI_MODE_0, 0, 500
     buffer[1] = IISM();
     buffer[2] = DIG_BRIDGE();
     spi.send(buffer.data(), 3);
+
+    uint8_t ver = read_version();
+    cout << "SX1255 Hardware version is 0x" << hex << ver << endl;
+}
+
+sx1255_drv::sx1255_drv()
+{
+
 }
 
 int sx1255_drv::set_tx_freq(unsigned long freq)

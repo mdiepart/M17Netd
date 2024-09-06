@@ -172,10 +172,21 @@ void TunDevice::setUpDown(bool up)
     ioctl(sock_fd, SIOCGIFFLAGS, (void *)&ifr);
     
     if(up)
+    {
+#ifdef IFF_NO_CARRIER
         ifr.ifr_flags |= (IFF_UP | IFF_RUNNING | IFF_NO_CARRIER);
+#else
+        ifr.ifr_flags |= (IFF_UP | IFF_RUNNING);
+#endif
+    }
     else
+    {
+#ifdef IFF_NO_CARRIER
         ifr.ifr_flags &= ~(IFF_UP | IFF_RUNNING | IFF_NO_CARRIER);
-
+#else
+        ifr.ifr_flags &= ~(IFF_UP | IFF_RUNNING);
+#endif
+    }
     err = ioctl(sock_fd, SIOCSIFFLAGS, (void *)&ifr); // Apply new up/down status
 
     if(err < 0)

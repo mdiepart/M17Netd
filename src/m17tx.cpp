@@ -56,7 +56,7 @@ constexpr array<float, 161> m17tx::taps =
 -0.002258562030850857f
 };
 
-m17tx::m17tx(const string_view &src, const string_view &dst, const shared_ptr<vector<uint8_t>> ip_pkt)
+m17tx::m17tx(const string_view &src, const string_view &dst, const shared_ptr<vector<uint8_t>> ip_pkt): bb_samples(0), bb_idx(0), filt_offset(0)
 {
     if(ip_pkt->size() > 820)
     {
@@ -132,7 +132,7 @@ m17tx::m17tx(const string_view &src, const string_view &dst, const shared_ptr<ve
         // Check if this is the last frame
         if(index_i >= ip_pkt->size())
         {
-            memset(pkt_data+index_o, 0, 26);
+            memset(pkt_data+index_o, 0, 26-index_o);
             pkt_data[25] = index_o | (1 << 5); // EOT + pkt len
             
         }else{
@@ -147,14 +147,8 @@ m17tx::m17tx(const string_view &src, const string_view &dst, const shared_ptr<ve
     send_eot(frame, &cnt);
     std::copy(frame, frame+cnt, back_inserter(*symbols));
     cnt = 0;
-
-    // Initialize filt_buff
-    for(size_t i = 180; i > 0; i -= 20)
-    {
-        
-    }
+    filt_buff.fill(0.0f);
     filt_buff[0] = symbols->at(bb_idx++);
-    filt_offset = 0;
 }
 
 m17tx::~m17tx()

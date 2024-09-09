@@ -15,10 +15,10 @@ private:
 
     vector<float> *symbols;
     static const array<float, nb_taps> taps;
-    size_t bb_samples = 0;
-    size_t bb_idx = 0;
-    array<float, (nb_taps+N)> filt_buff{};
-    size_t filt_offset = 0;
+    size_t bb_samples;
+    size_t bb_idx;
+    array<float, (nb_taps+N)> filt_buff;
+    size_t filt_offset;
 
 public:
     m17tx(const string_view &src, const string_view &dst, const shared_ptr<vector<uint8_t>> ip_pkt);

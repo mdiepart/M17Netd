@@ -7,7 +7,7 @@
 
 sx1255_drv::sx1255_drv(const string dev_name) : spi(dev_name, SPI_MODE_0, 0, 500000)
 {
-    uint8_t ver = read_version();
+    unsigned ver = read_version();
     cout << "SX1255 Hardware version is 0x" << hex << ver << endl;
 }
 

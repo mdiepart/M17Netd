@@ -17,10 +17,13 @@
 class sx1255_drv
 {
     public:
-    sx1255_drv();
     sx1255_drv(const string dev_name);
 
-    // Enums TX
+    /**
+     * Init sends the configuration registers as per the configuration
+     * in the rest of this class
+     */
+    int init();
     
     /** Transmitter DAC gain */
     enum dac_gain {

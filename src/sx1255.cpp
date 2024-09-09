@@ -7,12 +7,22 @@
 
 sx1255_drv::sx1255_drv(const string dev_name) : spi(dev_name, SPI_MODE_0, 0, 500000)
 {
+    uint8_t ver = read_version();
+    cout << "SX1255 Hardware version is 0x" << hex << ver << endl;
+}
+
+int sx1255_drv::init()
+{
     array<uint8_t, 8> buffer = {0};
+
+    // Mode register
     buffer[0] = MODE_ADDR | REG_WRITE;
     buffer[1] = MODE(0, 0, 0, 1); // Enable Power Distribution System
-    
-    spi.send(buffer.data(), 2);
+    int ret = spi.send(buffer.data(), 2);
+    if(ret < 0)
+        return -1;
 
+    // Front-ends registers
     buffer = {
         TXFE1_ADDR | REG_WRITE,         // Write start at TXFE1
         TXFE1(DAC_GAIN_MAX_min3, 0x0E), // Default values
@@ -23,24 +33,26 @@ sx1255_drv::sx1255_drv(const string dev_name) : spi(dev_name, SPI_MODE_0, 0, 500
         RXFE2(),
         RXFE3()
     };
-    spi.send(buffer.data(), buffer.size());
+    ret = spi.send(buffer.data(), buffer.size());
+    if(ret < 0)
+        return -1;
 
+    // CK_SEL register
     buffer[0] = CK_SEL_ADDR | REG_WRITE;
     buffer[1] = CK_SEL();
-    spi.send(buffer.data(), 2);
+    ret = spi.send(buffer.data(), 2);
+    if(ret < 0)
+        return -1;
 
+    // IISM and DIG_BRIDGE registers
     buffer[0] = IISM_ADDR | REG_WRITE;
     buffer[1] = IISM();
     buffer[2] = DIG_BRIDGE();
-    spi.send(buffer.data(), 3);
-
-    uint8_t ver = read_version();
-    cout << "SX1255 Hardware version is 0x" << hex << ver << endl;
-}
-
-sx1255_drv::sx1255_drv()
-{
-
+    ret = spi.send(buffer.data(), 3);
+    if(ret < 0)
+        return -1;
+    
+    return 0;
 }
 
 int sx1255_drv::set_tx_freq(unsigned long freq)

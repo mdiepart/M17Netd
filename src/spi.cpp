@@ -62,6 +62,28 @@ spi_dev::spi_dev()
     fd = -1;
 }
 
+spi_dev::spi_dev(spi_dev &&dev)
+{
+    fd = dev.fd;
+    dev.fd = -1;
+    speed = dev.speed;
+    mode = dev.mode;
+    endianness = dev.endianness;
+    word_len = dev.word_len;
+}
+
+spi_dev & spi_dev::operator=(spi_dev &&dev)
+{
+    fd = dev.fd;
+    dev.fd = -1;
+    speed = dev.speed;
+    mode = dev.mode;
+    endianness = dev.endianness;
+    word_len = dev.word_len;
+
+    return *this;
+}
+
 spi_dev::~spi_dev()
 {
     if(fd>0)

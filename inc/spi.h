@@ -13,6 +13,18 @@ class spi_dev
     public:
     spi_dev();
     spi_dev(string dev_name, int mode, int word_len, int speed);
+
+    // Disable copy constructor because the fd should be unique among objects
+    spi_dev(const spi_dev &dev) = delete;
+
+    // Move contructor: copy fd and set origin fd to -1
+    spi_dev(spi_dev &&dev);
+
+    // Disable copy assignment because the fd should be unique among objects
+    spi_dev& operator=(const spi_dev &) = delete;
+
+    // Move assignment: copy fd and set origin fd to -1
+    spi_dev& operator=(spi_dev &&);
     ~spi_dev();
 
     /** Reads n bytes from the spi bus

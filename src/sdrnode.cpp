@@ -119,7 +119,7 @@ void int16_to_float(int16_t *input, float *output, const size_t n)
 #endif
 }
 
-sdrnode::sdrnode(const unsigned long rx_freq, const unsigned long tx_freq)
+sdrnode::sdrnode(const unsigned long rx_freq, const unsigned long tx_freq) : sx1255(spi_devname)
 {
     if(tx_freq < 400e6 || tx_freq > 510e6)
         throw invalid_argument("TX frequency is outside the [400,510] MHz range.");
@@ -136,7 +136,7 @@ sdrnode::sdrnode(const unsigned long rx_freq, const unsigned long tx_freq)
     gpio_set_level(gpio_SX1255_reset, false);
     usleep(5000u);
 
-    sx1255 = sx1255_drv(spi_devname);
+    sx1255.init();
 
     // Open PCM device for RX
     open_pcm_rx();

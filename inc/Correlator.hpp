@@ -66,7 +66,7 @@ public:
      * @param syncword: syncword symbols.
      * @return convolution product.
      */
-    int32_t convolve(const std::array< int8_t, SYNCW_SIZE >& syncword)
+    int32_t convolve(const std::array< int8_t, SYNCW_SIZE >& syncword) const
     {
         int32_t conv = 0;
         size_t  pos  = prevIdx + SAMPLES_PER_SYM;
@@ -92,7 +92,7 @@ public:
      * @return a std::pair carrying the maximum deviation. First element is
      * positive deviation, second element is negative deviation.
      */
-    std::pair< int32_t, int32_t > maxDeviation(const uint8_t samplePoint)
+    std::pair< int32_t, int32_t > maxDeviation(const uint8_t samplePoint) const
     {
         int32_t maxSum = 0;
         int32_t minSum = 0;
@@ -129,7 +129,7 @@ public:
      *
      * @return a pointer to the correlator memory.
      */
-    const int16_t *data()
+    const int16_t *data() const
     {
         return samples;
     }
@@ -140,7 +140,7 @@ public:
      *
      * @return index of the last stored sample.
      */
-    size_t index()
+    size_t index() const
     {
         return prevIdx;
     }
@@ -151,7 +151,7 @@ public:
      *
      * @return index of the last stored sample.
      */
-    size_t sampleIndex()
+    size_t sampleIndex() const
     {
         return prevIdx % SAMPLES_PER_SYM;
     }

@@ -4,6 +4,7 @@
  *                                Wojciech Kaczmarski SP5WWP               *
  *                                Frederik Saraci IU2NRO                   *
  *                                Silvano Seva IU2KWO                      *
+ *                                Morgan Diepart ON4MOD                    *
  *                                                                         *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -41,8 +42,8 @@
 namespace M17
 {
 
-using frame_t   = std::array< uint8_t, 48 >; // Data type for a full M17 data frame, including sync word
-using syncw_t   = std::array< uint8_t, 2  >; // Data type for a sync word
+using m17frame_t   = std::array< uint16_t, 192*2 >; // Data type for a full M17 data frame, including sync word
+using m17syncw_t   = std::array< uint8_t, 2  >; // Data type for a sync word
 
 class M17Demodulator
 {
@@ -74,7 +75,7 @@ public:
      * @return reference to the internal data structure containing the last
      * decoded frame.
      */
-    const frame_t& getFrame();
+    const m17frame_t& getFrame();
 
     /**
      * Demodulates data from the ADC and fills the idle frame.
@@ -83,7 +84,7 @@ public:
      * @param invertPhase: invert the phase of the baseband signal before decoding.
      * @return true if a new frame has been fully decoded.
      */
-    bool update(int16_t *samples, size_t N);
+    bool update(float *samples, size_t N);
 
     /**
      * @return true if a demodulator is locked on an M17 stream.
@@ -111,19 +112,19 @@ private:
      * M17 baseband signal sampled at 24kHz, half of an M17 frame is processed
      * at each update of the demodulator.
      */
-    static constexpr size_t  M17_SYMBOL_RATE      = 4800;
-    static constexpr size_t  M17_FRAME_SYMBOLS    = 192;
-    static constexpr size_t  RX_SAMPLE_RATE       = 96000;
-    static constexpr size_t  M17_SYNCWORD_SYMBOLS = 8;
-    static constexpr size_t  SAMPLES_PER_SYMBOL   = RX_SAMPLE_RATE / M17_SYMBOL_RATE;
-    static constexpr size_t  FRAME_SAMPLES        = M17_FRAME_SYMBOLS * SAMPLES_PER_SYMBOL;
-    static constexpr size_t  SAMPLE_BUF_SIZE      = FRAME_SAMPLES / 2;
-    static constexpr size_t  SYNCWORD_SAMPLES     = SAMPLES_PER_SYMBOL * M17_SYNCWORD_SYMBOLS;
-    static constexpr syncw_t LSF_SYNC_WORD        = {0x55, 0xF7};  // LSF sync word
-    static constexpr syncw_t BERT_SYNC_WORD       = {0xDF, 0x55};  // BERT data sync word
-    static constexpr syncw_t STREAM_SYNC_WORD     = {0xFF, 0x5D};  // Stream data sync word
-    static constexpr syncw_t PACKET_SYNC_WORD     = {0x75, 0xFF};  // Packet data sync word
-    static constexpr syncw_t EOT_SYNC_WORD        = {0x55, 0x5D};  // End of transmission sync word
+    static constexpr size_t     M17_SYMBOL_RATE         = 4800;
+    static constexpr size_t     M17_FRAME_SYMBOLS       = 192;
+    static constexpr size_t     RX_SAMPLE_RATE          = 96000;
+    static constexpr size_t     M17_SYNCWORD_SYMBOLS    = 8;
+    static constexpr size_t     SAMPLES_PER_SYMBOL      = RX_SAMPLE_RATE / M17_SYMBOL_RATE;
+    static constexpr size_t     FRAME_SAMPLES           = M17_FRAME_SYMBOLS * SAMPLES_PER_SYMBOL;
+    static constexpr size_t     SAMPLE_BUF_SIZE         = FRAME_SAMPLES / 2;
+    static constexpr size_t     SYNCWORD_SAMPLES        = SAMPLES_PER_SYMBOL * M17_SYNCWORD_SYMBOLS;
+    static constexpr m17syncw_t LSF_SYNC_WORD           = {0x55, 0xF7};  // LSF sync word
+    static constexpr m17syncw_t BERT_SYNC_WORD          = {0xDF, 0x55};  // BERT data sync word
+    static constexpr m17syncw_t STREAM_SYNC_WORD        = {0xFF, 0x5D};  // Stream data sync word
+    static constexpr m17syncw_t PACKET_SYNC_WORD        = {0x75, 0xFF};  // Packet data sync word
+    static constexpr m17syncw_t EOT_SYNC_WORD           = {0x55, 0x5D};  // End of transmission sync word
     /**
      * Internal state of the demodulator.
      */
@@ -137,6 +138,16 @@ private:
     };
 
     /**
+     * Internal enum representing the type of syncword last received
+     */
+    enum class SyncWord
+    {
+        NONE,
+        LSF,
+        PACKET,
+    };
+
+    /**
      * Cofficients of the sample filter
      */
     static constexpr std::array < float, 3 > sfNum = {4.24433681e-05f, 8.48867363e-05f, 4.24433681e-05f};
@@ -144,8 +155,8 @@ private:
 
     DemodState                     demodState;      ///< Demodulator state
     std::unique_ptr< int16_t[] >   baseband_buffer; ///< Buffer for baseband audio handling.
-    std::unique_ptr<frame_t >      demodFrame;      ///< Frame being demodulated.
-    std::unique_ptr<frame_t >      readyFrame;      ///< Fully demodulated frame to be returned.
+    std::unique_ptr<m17frame_t >   demodFrame;      ///< Frame being demodulated.
+    std::unique_ptr<m17frame_t >   readyFrame;      ///< Fully demodulated frame to be returned.
     bool                           locked;          ///< A syncword was correctly demodulated.
     bool                           newFrame;        ///< A new frame has been fully decoded.
     uint16_t                       frameIndex;      ///< Index for filling the raw frame.
@@ -157,10 +168,13 @@ private:
     uint32_t                       syncCount;       ///< Downcounter for resynchronization
     std::pair < int32_t, int32_t > outerDeviation;  ///< Deviation of outer symbols
     float                          corrThreshold;   ///< Correlation threshold
-    dc_remover                     dcr;             ///< DC removal filter
+    iirfilt_rrrf                   dcr;             ///< DC removal filter
     firfilt_rrrf                   rrcos_filt;      ///< Root-raised cosine filter for baseband signal
+    SyncWord                       lastSyncWord;
+
 
     Correlator   < M17_SYNCWORD_SYMBOLS, SAMPLES_PER_SYMBOL > correlator;
+    Synchronizer < M17_SYNCWORD_SYMBOLS, SAMPLES_PER_SYMBOL > lsfSync{{ +3, +3, +3, +3, -3, -3, +3, -3 }};
     Synchronizer < M17_SYNCWORD_SYMBOLS, SAMPLES_PER_SYMBOL > packetSync{{ +3, -3, +3, +3, -3, -3, -3, -3 }};
     Iir          < 3 >                                        sampleFilter{sfNum, sfDen};
 };

@@ -150,7 +150,7 @@ static inline void pushLog(const log_entry_t& e)
 
 M17Demodulator::M17Demodulator()
 {
-    dcr.reset();
+    dcr = iirfilt_rrrf_create_dc_blocker(0.001f);
     float taps[161];
     memcpy(taps, rrc_taps_20, 161*sizeof(float));
     rrcos_filt = firfilt_rrrf_create(taps, 161);
@@ -160,6 +160,7 @@ M17Demodulator::M17Demodulator()
 M17Demodulator::~M17Demodulator()
 {
     terminate();
+    iirfilt_rrrf_destroy(dcr);
     firfilt_rrrf_destroy(rrcos_filt);
 }
 
@@ -172,8 +173,8 @@ void M17Demodulator::init()
      */
 
     baseband_buffer = std::make_unique< int16_t[] >(2 * SAMPLE_BUF_SIZE);
-    demodFrame      = std::make_unique< frame_t >();
-    readyFrame      = std::make_unique< frame_t >();
+    demodFrame      = std::make_unique< m17frame_t >();
+    readyFrame      = std::make_unique< m17frame_t >();
 
     reset();
 
@@ -199,7 +200,7 @@ void M17Demodulator::terminate()
     #endif
 }
 
-const M17::frame_t& M17Demodulator::getFrame()
+const M17::m17frame_t& M17Demodulator::getFrame()
 {
     // When a frame is read is not new anymore
     newFrame = false;
@@ -211,21 +212,21 @@ bool M17Demodulator::isLocked()
     return locked;
 }
 
-bool M17Demodulator::update(int16_t *samples, size_t N)
+bool M17Demodulator::update(float *samples, size_t N)
 {
     if(samples != nullptr)
     {
         // Apply DC removal filter
-        dcr.process_samples(samples, N);
+        iirfilt_rrrf_execute_block(dcr, samples, N, samples);
 
         // Process samples
         for(size_t i = 0; i < N; i++)
         {
             // Apply RRC on the baseband sample
-            float   elem   = static_cast< float >(samples[i]);
-            firfilt_rrrf_push(rrcos_filt, elem);
+            float   elem;
+            firfilt_rrrf_push(rrcos_filt, samples[i]);
             firfilt_rrrf_execute(rrcos_filt, &elem);
-            int16_t sample = static_cast<int16_t>(elem);
+            int16_t sample = static_cast<int16_t>(elem*10000); // Scale up
 
             // Update correlator and sample filter for correlation thresholds
             correlator.sample(sample);
@@ -244,17 +245,36 @@ bool M17Demodulator::update(int16_t *samples, size_t N)
                 case DemodState::UNLOCKED:
                 {
                     int32_t syncThresh = static_cast< int32_t >(corrThreshold * 33.0f);
-                    int8_t  syncStatus = packetSync.update(correlator, syncThresh, -syncThresh);
+                    int8_t  packetSyncStatus = packetSync.update(correlator, syncThresh, -syncThresh);
+                    int8_t  lsfSyncStatus = lsfSync.update(correlator, syncThresh, -syncThresh);
 
-                    if(syncStatus != 0)
+                    // We only check for positive correlation peaks because we
+                    // are not interrested in streams and BERTs
+                    if(packetSyncStatus == 1)
+                    {
                         demodState = DemodState::SYNCED;
+                        lastSyncWord = SyncWord::PACKET;
+                    }
+                    else if(lsfSyncStatus == 1)
+                    {
+                        demodState = DemodState::SYNCED;
+                        lastSyncWord = SyncWord::LSF;
+                    }
                 }
                     break;
 
                 case DemodState::SYNCED:
                 {
                     // Set sampling point and deviation, zero frame symbol count
-                    samplingPoint  = packetSync.samplingIndex();
+                    if(lastSyncWord == SyncWord::PACKET)
+                    {
+                        samplingPoint = packetSync.samplingIndex();
+                    }
+                    else if(lastSyncWord == SyncWord::LSF)
+                    {
+                        samplingPoint = lsfSync.samplingIndex();
+                    }
+
                     outerDeviation = correlator.maxDeviation(samplingPoint);
                     frameIndex     = 0;
 
@@ -269,8 +289,8 @@ bool M17Demodulator::update(int16_t *samples, size_t N)
                             updateFrame(val);
                     }
 
-                    uint8_t hd  = hammingDistance((*demodFrame)[0], STREAM_SYNC_WORD[0]);
-                            hd += hammingDistance((*demodFrame)[1], STREAM_SYNC_WORD[1]);
+                    uint8_t hd  = hammingDistance((*demodFrame)[0], PACKET_SYNC_WORD[0]);
+                            hd += hammingDistance((*demodFrame)[1], PACKET_SYNC_WORD[1]);
 
                     if(hd == 0)
                     {
@@ -310,15 +330,16 @@ bool M17Demodulator::update(int16_t *samples, size_t N)
 
                     // Find the new correlation peak
                     int32_t syncThresh = static_cast< int32_t >(corrThreshold * 33.0f);
-                    int8_t  syncStatus = packetSync.update(correlator, syncThresh, -syncThresh);
+                    int8_t  packetSyncStatus = packetSync.update(correlator, syncThresh, -syncThresh);
+                    int8_t  lsfSyncStatus = lsfSync.update(correlator, syncThresh, -syncThresh);
 
-                    if(syncStatus != 0)
+                    if(packetSyncStatus != 0)
                     {
                         // Correlation has to coincide with a syncword!
                         if(frameIndex == M17_SYNCWORD_SYMBOLS)
                         {
-                            uint8_t hd  = hammingDistance((*demodFrame)[0], STREAM_SYNC_WORD[0]);
-                                    hd += hammingDistance((*demodFrame)[1], STREAM_SYNC_WORD[1]);
+                            uint8_t hd  = hammingDistance((*demodFrame)[0], PACKET_SYNC_WORD[0]);
+                                    hd += hammingDistance((*demodFrame)[1], PACKET_SYNC_WORD[1]);
 
                             // Valid sync found: update deviation and sample
                             // point, then go back to locked state
@@ -326,6 +347,26 @@ bool M17Demodulator::update(int16_t *samples, size_t N)
                             {
                                 outerDeviation = correlator.maxDeviation(samplingPoint);
                                 samplingPoint  = packetSync.samplingIndex();
+                                missedSyncs    = 0;
+                                demodState     = DemodState::LOCKED;
+                                break;
+                            }
+                        }
+                    }
+                    else if(lsfSyncStatus)
+                    {
+                        // Correlation has to coincide with a syncword!
+                        if(frameIndex == M17_SYNCWORD_SYMBOLS)
+                        {
+                            uint8_t hd  = hammingDistance((*demodFrame)[0], LSF_SYNC_WORD[0]);
+                                    hd += hammingDistance((*demodFrame)[1], LSF_SYNC_WORD[1]);
+
+                            // Valid sync found: update deviation and sample
+                            // point, then go back to locked state
+                            if(hd <= 1)
+                            {
+                                outerDeviation = correlator.maxDeviation(samplingPoint);
+                                samplingPoint  = lsfSync.samplingIndex();
                                 missedSyncs    = 0;
                                 demodState     = DemodState::LOCKED;
                                 break;
@@ -371,24 +412,29 @@ int8_t M17Demodulator::updateFrame(int16_t sample)
     if(sample > (2 * outerDeviation.first)/3)
     {
         symbol = +3;
+        demodFrame->at(frameIndex++) = 0x0000;
+        demodFrame->at(frameIndex++) = 0xFFFF;
     }
     else if(sample < (2 * outerDeviation.second)/3)
     {
         symbol = -3;
+        demodFrame->at(frameIndex++) = 0xFFFF;
+        demodFrame->at(frameIndex++) = 0xFFFF;
     }
     else if(sample > 0)
     {
         symbol = +1;
+        demodFrame->at(frameIndex++) = 0x0000;
+        demodFrame->at(frameIndex++) = 0x0000;
     }
     else
     {
         symbol = -1;
-    }
+        demodFrame->at(frameIndex++) = 0xFFFF;
+        demodFrame->at(frameIndex++) = 0x0000;
+    }    
 
-    setSymbol(*demodFrame, frameIndex, symbol);
-    frameIndex += 1;
-
-    if(frameIndex >= M17_FRAME_SYMBOLS)
+    if(frameIndex >= 2*M17_FRAME_SYMBOLS)
     {
         std::swap(readyFrame, demodFrame);
         frameIndex = 0;
@@ -408,7 +454,7 @@ void M17Demodulator::reset()
     demodState  = DemodState::INIT;
     initCount   = RX_SAMPLE_RATE / 50;  // 50ms of init time
 
-    dcr.reset();
+    iirfilt_rrrf_reset(dcr);
     firfilt_rrrf_reset(rrcos_filt);
 }
 

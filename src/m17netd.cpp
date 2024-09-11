@@ -12,8 +12,6 @@
 
 std::atomic<bool> running; // Signals to the threads that program must stop and exit
 
-int parse_tun_config(const toml::table &toml_cfg, tunthread_cfg &tun);
-
 void sigint_catcher(int signum)
 {
     if(signum == SIGINT)

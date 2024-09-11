@@ -150,6 +150,12 @@ sdrnode::sdrnode(const unsigned long rx_freq, const unsigned long tx_freq) : sx1
     tx_nRx = false;
 }
 
+sdrnode::~sdrnode()
+{
+    close_pcm();
+    snd_config_update_free_global();
+}
+
 int sdrnode::gpio_set_level(unsigned gpio, bool value)
 {
     int fd;
@@ -190,7 +196,7 @@ int sdrnode::gpio_set_level(unsigned gpio, bool value)
 int sdrnode::open_pcm_rx()
 {
     int err;
-    snd_pcm_hw_params_t *pcm_hw_params;
+    //snd_pcm_hw_params_t *pcm_hw_params;
 
     err = snd_pcm_open(&pcm_hdl, audio_rx_dev, SND_PCM_STREAM_CAPTURE, 0);
     if (err < 0) {
@@ -200,8 +206,8 @@ int sdrnode::open_pcm_rx()
         return -1;
     }
 
-    snd_pcm_hw_params_malloc(&pcm_hw_params);
-    /*err = snd_pcm_hw_params_any(pcm_hdl, pcm_hw_params);
+    /*snd_pcm_hw_params_malloc(&pcm_hw_params);
+    err = snd_pcm_hw_params_any(pcm_hdl, pcm_hw_params);
     if (err < 0) {
         cerr << "Cannot initialize hardware parameter structure: " 
         << snd_strerror(err) << endl;
@@ -255,11 +261,11 @@ int sdrnode::open_pcm_rx()
         cerr << "cannot set parameters: " << snd_strerror(err) << endl;
         pcm_hdl = nullptr;
         return err;
-    }*/
+    }
+
+    snd_pcm_hw_params_free(pcm_hw_params);*/
 
     cout << "pcm_hw_params set successfuly" << endl;
-
-    snd_pcm_hw_params_free(pcm_hw_params);
 
     err = snd_pcm_prepare(pcm_hdl); 
     if (err < 0) {
@@ -274,7 +280,7 @@ int sdrnode::open_pcm_rx()
 int sdrnode::open_pcm_tx()
 {
      int err;
-    snd_pcm_hw_params_t *pcm_hw_params;
+    //snd_pcm_hw_params_t *pcm_hw_params;
 
     err = snd_pcm_open(&pcm_hdl, audio_rx_dev, SND_PCM_STREAM_PLAYBACK, 0);
     if (err < 0) {
@@ -284,8 +290,8 @@ int sdrnode::open_pcm_tx()
         return err;
     }
 
-    snd_pcm_hw_params_malloc(&pcm_hw_params) ;
-    /*err = snd_pcm_hw_params_any(pcm_hdl, pcm_hw_params);
+    /*snd_pcm_hw_params_malloc(&pcm_hw_params);
+    err = snd_pcm_hw_params_any(pcm_hdl, pcm_hw_params);
     if (err < 0) {
         cerr << "Cannot initialize hardware parameter structure: " 
         << snd_strerror(err) << endl;
@@ -339,11 +345,11 @@ int sdrnode::open_pcm_tx()
         cerr << "cannot set parameters: " << snd_strerror(err) << endl;
         pcm_hdl = nullptr;
         return err;
-    }*/
+    }
+
+    snd_pcm_hw_params_free(pcm_hw_params); */
 
     cout << "pcm_hw_params set successfuly" << endl;
-
-    snd_pcm_hw_params_free(pcm_hw_params);
 
     err = snd_pcm_prepare(pcm_hdl); 
     if (err < 0) {

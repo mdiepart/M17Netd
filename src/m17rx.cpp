@@ -14,7 +14,7 @@ m17rx::m17rx(): status(packet_status::EMPTY), lsf(), corrected_errors(0), receiv
 
 m17rx::~m17rx()
 {
-    delete[](pkt_data);
+    delete(pkt_data);
 }
 
 m17rx::m17rx(const m17rx &origin): status(origin.status), corrected_errors(origin.corrected_errors), received_pkt_frames(origin.received_pkt_frames)

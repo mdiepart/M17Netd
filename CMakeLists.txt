@@ -13,7 +13,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(m17netd_src
     src/m17netd.cpp
 	src/tuntap.cpp
-	src/tunthread.cpp
+	src/tun_threads.cpp
 	src/radio_thread.cpp
 	src/m17tx_thread.cpp
 	src/m17tx.cpp
@@ -45,6 +45,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(tomlplusplus)
 
 set(BUILD_STATIC_LIB ON)
+set(BUILD_SHARED_LIB OFF)
 add_subdirectory(lib/libm17)
 find_library(liquid_LIB liquid)
 find_package(ALSA REQUIRED)

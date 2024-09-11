@@ -4,9 +4,7 @@
 #include <vector>
 #include <cstdint>
 
-#include <sys/socket.h>
-#include <netinet/ip.h>
-#include "tunthread.h"
+#include "config.h"
 
 class TunDevice {
 
@@ -15,10 +13,12 @@ class TunDevice {
     ~TunDevice();
     
     std::shared_ptr<std::vector<uint8_t>> getPacket(std::atomic<bool> &running);
+    int sendPacket(const std::vector<uint8_t> &pkt);
     void setIPV4(std::string_view ip);
     void setUpDown(bool up);
     void setMTU(int mtu);
     int addRoutesForPeer(const peer_t &peer);
+    std::string getName() const;
 
     private:
 

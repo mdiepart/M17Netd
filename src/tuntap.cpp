@@ -18,14 +18,13 @@
 #include <linux/if_tun.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
-
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <sys/types.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <net/route.h>
 
-#include "tunthread.h"
 #include "tuntap.h"
+#include "config.h"
 
 #define ifreq_offsetof(x)  offsetof(struct ifreq, x)
 
@@ -51,7 +50,7 @@ TunDevice::TunDevice(const std::string_view &name)
      *
      *        IFF_NO_PI - Do not provide packet information
      */
-    ifr.ifr_flags = IFF_TUN | IFF_NO_PI;
+    ifr.ifr_flags = IFF_TUN | IFF_NO_PI | IFF_MULTI_QUEUE;
 
     // if a name was given, copy it in the init structure
     if( *dev )
@@ -132,6 +131,17 @@ std::shared_ptr<std::vector<uint8_t>> TunDevice::getPacket(std::atomic<bool> &ru
     {
         return std::shared_ptr<std::vector<uint8_t>>(new std::vector<uint8_t>(storage, storage+n));
     }
+}
+
+int TunDevice::sendPacket(const std::vector<uint8_t> &pkt)
+{
+    int written = write(tun_fd, pkt.data(), pkt.size());
+    if(written < 0)
+        return -1;
+    else if(static_cast<size_t>(written) != pkt.size())
+        return -1;
+
+    return 0;
 }
 
 void TunDevice::setIPV4(std::string_view ip)
@@ -218,7 +228,6 @@ void TunDevice::setMTU(int size)
         std::cout << "Could not set MTU of interface " << ifName << ": errno=" << errno << std::endl;
     }
 }
-
 
 int TunDevice::addRoutesForPeer(const peer_t &peer)
 {
@@ -317,4 +326,9 @@ int TunDevice::addRoutesForPeer(const peer_t &peer)
     }
     
     return EXIT_SUCCESS;
+}
+
+std::string TunDevice::getName() const
+{
+    return ifName;
 }

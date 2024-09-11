@@ -6,18 +6,15 @@
 #include <string>
 #include <iostream>
 #include <map>
+#include <thread>
+#include <chrono>
 
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <arpa/inet.h>
 
-#include <thread>
-#include <chrono>
-
 #include <m17.h>
-
 #include "config.h"
-
 #include "m17tx.h"
 
 using namespace std;

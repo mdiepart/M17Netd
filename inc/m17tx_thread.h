@@ -6,7 +6,6 @@
 #include <memory>
 
 #include "ConsumerProducer.h"
-#include "tunthread.h"
 #include "config.h"
 #include "m17tx.h"
 using namespace std;

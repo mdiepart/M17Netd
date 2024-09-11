@@ -22,6 +22,7 @@ set(m17netd_src
 	src/sx1255.cpp
 	src/sdrnode.cpp
 	src/M17Demodulator.cpp
+	src/m17rx.cpp
 )
 
 add_executable(M17Netd ${m17netd_src})

@@ -17,6 +17,7 @@
 #include "ConsumerProducer.h"
 #include "sdrnode.h"
 
+#include "m17tx.h"
 #include "radio_thread.h"
 #include "config.h"
 
@@ -24,7 +25,7 @@ using namespace std;
 
 void radio_simplex::operator()(atomic_bool &running, const config &cfg,
                     ConsumerProducerQueue<shared_ptr<m17tx>> &to_radio,
-                    ConsumerProducerQueue<shared_ptr<vector<uint8_t>>> &from_radio)
+                    ConsumerProducerQueue<shared_ptr<m17rx>> &from_radio)
 {
     radio_thread_cfg radio_cfg;
     cfg.getRadioConfig(radio_cfg);

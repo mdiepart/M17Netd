@@ -18,7 +18,7 @@ class radio_simplex {
     public:
     void operator()(std::atomic_bool &running, const config &cfg,
                     ConsumerProducerQueue<shared_ptr<m17tx>> &to_radio,
-                    ConsumerProducerQueue<shared_ptr<vector<uint8_t>>> &from_radio);
+                    ConsumerProducerQueue<shared_ptr<m17rx>> &from_radio);
 
     private:
     static constexpr size_t block_size = 960; // Samples block size, 10ms of baseband at 96000 kSps

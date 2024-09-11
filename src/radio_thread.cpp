@@ -16,7 +16,8 @@
 
 #include "ConsumerProducer.h"
 #include "sdrnode.h"
-
+#include "M17Demodulator.hpp"
+#include "m17rx.h"
 #include "m17tx.h"
 #include "radio_thread.h"
 #include "config.h"
@@ -38,13 +39,13 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
     shared_ptr<m17tx> packet;
 
     // Block of samples
-    array<float, 2*block_size> *rx_samples = new array<float, 2*block_size>();
-    array<float, block_size> *rx_baseband = new array<float, block_size>();
-    array<float, sizeof(rrc_taps_20)/sizeof(rrc_taps_20[0])> taps;
-    memcpy(taps.data(), rrc_taps_20, taps.size());
+    array<float, 2*block_size>  *rx_samples     = new array<float, 2*block_size>();
+    array<float, 2*block_size>  *tx_samples     = new array<float, 2*block_size>();
+    array<float, block_size>    *rx_baseband    = new array<float, block_size>();
 
-    array<float, 2*block_size> *tx_samples = new array<float, 2*block_size>();
-    firfilt_rrrf rrcos_rx_fir = firfilt_rrrf_create(taps.data(), taps.size());
+    // M17 Demodulator
+    M17::M17Demodulator demodulator;
+    demodulator.init();
 
     // Create and initialize the radio
     sdrnode radio = sdrnode(radio_cfg.rx_freq, radio_cfg.tx_freq);
@@ -55,7 +56,7 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
     {
         // While the channel is busy or while there is nothing to send
         // We keep receiving and (attempting to) demodulate
-        firfilt_rrrf_reset(rrcos_rx_fir); // reset internal state because there was a discontinuity in RX stream
+        shared_ptr<m17rx> rx_packet = make_shared<m17rx>();
         while(running && (to_radio.isEmpty() || channel_bsy))
         {
             int read = radio.receive(rx_samples->data(), rx_samples->size());
@@ -64,10 +65,26 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
             freqdem_demodulate_block(fdem, reinterpret_cast<liquid_float_complex *>(rx_samples->data()), 
                                      read, rx_baseband->data());
 
-            // Apply RRC Filter
-            firfilt_rrrf_execute_block(rrcos_rx_fir, rx_baseband->data(), read, rx_baseband->data());
-
             // Use OpenRTX demodulator
+            bool new_frame = demodulator.update(rx_baseband->data(), read);
+
+            if(new_frame)
+            {
+                rx_packet->add_frame(demodulator.getFrame());
+
+                if(rx_packet->is_error())
+                {
+                    // If the packet is in error state, discard it
+                    rx_packet = make_shared<m17rx>();
+                }
+                else if(rx_packet->is_complete())
+                {
+                    // If this frame completes the packet, push it to the output queue
+                    from_radio.add(rx_packet);
+                    rx_packet = make_shared<m17rx>();
+                }                
+            }
+
 
             // If demodulator synced, channel is busy. 
             // If demodulator is unsynced, check if channel busy? 
@@ -125,11 +142,10 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
         my_file_sym.close();*/
     }
 
-    delete(rx_samples);
-    delete(rx_baseband);
-    delete(tx_samples);
+    delete[](rx_samples);
+    delete[](rx_baseband);
+    delete[](tx_samples);
 
-    firfilt_rrrf_destroy(rrcos_rx_fir);
     freqmod_destroy(fmod);
     freqdem_destroy(fdem);
 }

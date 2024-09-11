@@ -8,11 +8,13 @@
 #include <iomanip>
 #include <sstream>
 #include <fstream>
+#include <complex>
 
 #include <netinet/ip.h>
 
 #include <liquid/liquid.h>
 #include <m17.h>
+#include <fftw3.h>
 
 #include "ConsumerProducer.h"
 #include "sdrnode.h"
@@ -38,11 +40,17 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
 
     shared_ptr<m17tx> packet;
 
-    // Block of samples
-    array<float, 2*block_size>  *rx_samples     = new array<float, 2*block_size>();
+    // Allocations
+    // Allocate the RX samples with fftw so that it is aligned for SIMD
+    float *rx_samples = reinterpret_cast<float*>(fftwf_alloc_complex(block_size));
     array<float, 2*block_size>  *tx_samples     = new array<float, 2*block_size>();
     array<float, block_size>    *rx_baseband    = new array<float, block_size>();
 
+    // FFT: we only compute the FFT of the first 512 points
+    constexpr size_t fft_N = 512;
+    fftwf_complex *rx_samples_fft = reinterpret_cast<fftwf_complex *>(fftwf_alloc_complex(512));
+    fftwf_plan fft_plan = fftwf_plan_dft_1d(fft_N, reinterpret_cast<fftwf_complex*>(rx_samples), rx_samples_fft, FFTW_FORWARD, FFTW_MEASURE);
+    
     // M17 Demodulator
     M17::M17Demodulator demodulator;
     demodulator.init();
@@ -59,10 +67,10 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
         shared_ptr<m17rx> rx_packet = make_shared<m17rx>();
         while(running && (to_radio.isEmpty() || channel_bsy))
         {
-            int read = radio.receive(rx_samples->data(), rx_samples->size());
+            int read = radio.receive(rx_samples, block_size);
 
             // Frequency demodulation
-            freqdem_demodulate_block(fdem, reinterpret_cast<liquid_float_complex *>(rx_samples->data()), 
+            freqdem_demodulate_block(fdem, reinterpret_cast<liquid_float_complex *>(rx_samples), 
                                      read, rx_baseband->data());
 
             // Use OpenRTX demodulator
@@ -85,6 +93,57 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
                 }                
             }
 
+            if(!demodulator.isLocked())
+            {
+                fftwf_execute(fft_plan);
+
+                // Re-use rx_samples to store the module of the array
+                complex<float> *in = reinterpret_cast<complex<float> *>(rx_samples_fft);
+                float *out = reinterpret_cast<float *>(rx_samples);
+                for(size_t i = 0; i < 512; i++)
+                {
+                    out[i] = abs(in[i]);
+                }
+
+                float chan = 0, noise = 0;
+                for(size_t i = 0; i < 25; i++)
+                {
+                    chan += out[i];
+                }
+                for(size_t i = 512-25; i < 512; i++)
+                {
+                    chan += out[i];
+                }
+
+                for(size_t i = 25; i < 512-25; i++)
+                {
+                    noise += out[i];
+                }
+
+                chan /= 50;
+                noise /= (512-50);
+
+                // Check if there is more energy in the channel than elsewhere in the spectrum
+                if(chan >= 2*noise)
+                {
+                    // Channel is busy
+                    if(!channel_bsy)
+                    {
+                        cout << "Channel now busy" << endl;
+                    }
+                    channel_bsy = true;
+                }
+                else
+                {
+                    // Channel is free
+                    if(channel_bsy)
+                    {
+                        cout << "Channel now free" << endl;
+                    }
+                    channel_bsy = false;
+                }
+
+            }
 
             // If demodulator synced, channel is busy. 
             // If demodulator is unsynced, check if channel busy? 
@@ -105,46 +164,14 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
             }
             while(running && (packet->baseband_samples_left() > 0));
         }
-
-        /*string filename_bb = "./" + to_string(i) + ".csv";
-        string filename_sym = "./" + to_string(i) + "_sym.csv";
-        ofstream my_file_bb(filename_bb);
-        ofstream my_file_sym(filename_sym);
-        float t_bb = 0;
-        float t_sym = 0;
-        constexpr size_t chunk = 1000;
-
-        my_file_bb << "Time(s), Value" << endl;
-        my_file_sym << "Time(s), Symbol" << endl;
-        while(true)
-        {
-            vector<float> samples = packet->getBasebandSamples(chunk);
-            //cout << "Got " << to_string(samples.size()) << " baseband samples." << endl;
-
-            for(auto const &s: samples)
-            {
-                my_file_bb << t_bb << ", " << s << endl;
-                t_bb += (1.0f/96000.0f);
-            }
-
-            if(samples.size() < chunk)
-            {
-                break;
-            }
-        }
-        for(auto &sym: packet->getSymbols())
-        {
-            my_file_sym << t_sym << ", " << sym << endl;
-            t_sym += (1.0f/4800.0f);
-        }
-        i++;
-        my_file_bb.close();
-        my_file_sym.close();*/
     }
 
-    delete[](rx_samples);
-    delete[](rx_baseband);
-    delete[](tx_samples);
+    fftwf_destroy_plan(fft_plan);
+    fftwf_free(rx_samples);
+    fftwf_free(rx_samples_fft);
+    fftwf_cleanup();
+    delete(rx_baseband);
+    delete(tx_samples);
 
     freqmod_destroy(fmod);
     freqdem_destroy(fdem);

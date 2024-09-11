@@ -5,7 +5,7 @@ project(M17Netd
 	LANGUAGES C CXX)
 
 include(FetchContent)
-
+include(UsePkgConfig)
 # specify the C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -44,6 +44,9 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(tomlplusplus)
 
+find_package(PkgConfig)
+pkg_search_module(FFTW REQUIRED fftw3f IMPORTED_TARGET)
+
 set(BUILD_STATIC_LIB ON)
 set(BUILD_SHARED_LIB OFF)
 add_subdirectory(lib/libm17)
@@ -54,6 +57,7 @@ find_package(Threads REQUIRED)
 target_include_directories(M17Netd PUBLIC
 				${PROJECT_SOURCE_DIR}/inc
 				${tomlplusplus_SOURCE_DIR}
+				PkgConfig::FFTW
 				)
 
 if(liquid_LIB STREQUAL "liquid-NOTFOUND")
@@ -65,5 +69,6 @@ target_link_libraries(M17Netd PUBLIC
 				Threads::Threads
 				${liquid_LIB}
 				${ALSA_LIBRARIES}
+				PkgConfig::FFTW
 				)
 

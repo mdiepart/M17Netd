@@ -25,6 +25,8 @@
 #include <cstdint>
 #include <array>
 
+using namespace std;
+
 /**
  * Class to construct correlator objects, allowing to compute the cross-correlation
  * between a stream of signed 16-bit samples and a known syncword.

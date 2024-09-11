@@ -4,6 +4,7 @@
  *                                Wojciech Kaczmarski SP5WWP               *
  *                                Frederik Saraci IU2NRO                   *
  *                                Silvano Seva IU2KWO                      *
+ *                                Morgan Diepart ON4MOD                    *
  *                                                                         *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -20,13 +21,12 @@
  *   along with this program; if not, see <http://www.gnu.org/licenses/>   *
  ***************************************************************************/
 
-#include <M17/M17Demodulator.hpp>
-#include <M17/M17DSP.hpp>
-#include <M17/M17Utils.hpp>
-#include <audio_stream.h>
-#include <math.h>
+#include <M17Demodulator.hpp>
+#include <M17Utils.hpp>
+#include <cmath>
 #include <cstring>
-#include <stdio.h>
+#include <cstdio>
+#include <m17.h>
 
 using namespace M17;
 
@@ -150,12 +150,17 @@ static inline void pushLog(const log_entry_t& e)
 
 M17Demodulator::M17Demodulator()
 {
+    dcr.reset();
+    float taps[161];
+    memcpy(taps, rrc_taps_20, 161*sizeof(float));
+    rrcos_filt = firfilt_rrrf_create(taps, 161);
 
 }
 
 M17Demodulator::~M17Demodulator()
 {
     terminate();
+    firfilt_rrrf_destroy(rrcos_filt);
 }
 
 void M17Demodulator::init()
@@ -184,10 +189,6 @@ void M17Demodulator::init()
 
 void M17Demodulator::terminate()
 {
-    // Ensure proper termination of baseband sampling
-    audioPath_release(basebandPath);
-    audioStream_terminate(basebandId);
-
     // Delete the buffers and deallocate memory.
     baseband_buffer.reset();
     demodFrame.reset();
@@ -198,24 +199,7 @@ void M17Demodulator::terminate()
     #endif
 }
 
-void M17Demodulator::startBasebandSampling()
-{
-    basebandPath = audioPath_request(SOURCE_RTX, SINK_MCU, PRIO_RX);
-    basebandId = audioStream_start(basebandPath, baseband_buffer.get(),
-                                   2 * SAMPLE_BUF_SIZE, RX_SAMPLE_RATE,
-                                   STREAM_INPUT | BUF_CIRC_DOUBLE);
-
-    reset();
-}
-
-void M17Demodulator::stopBasebandSampling()
-{
-    audioStream_terminate(basebandId);
-    audioPath_release(basebandPath);
-    locked = false;
-}
-
-const frame_t& M17Demodulator::getFrame()
+const M17::frame_t& M17Demodulator::getFrame()
 {
     // When a frame is read is not new anymore
     newFrame = false;
@@ -227,26 +211,21 @@ bool M17Demodulator::isLocked()
     return locked;
 }
 
-bool M17Demodulator::update(const bool invertPhase)
+bool M17Demodulator::update(int16_t *samples, size_t N)
 {
-    // Audio path closed, nothing to do
-    if(audioPath_getStatus(basebandPath) != PATH_OPEN)
-        return false;
-
-    // Read samples from the ADC
-    dataBlock_t baseband = inputStream_getData(basebandId);
-    if(baseband.data != NULL)
+    if(samples != nullptr)
     {
         // Apply DC removal filter
-        dsp_dcRemoval(&dcrState, baseband.data, baseband.len);
+        dcr.process_samples(samples, N);
 
         // Process samples
-        for(size_t i = 0; i < baseband.len; i++)
+        for(size_t i = 0; i < N; i++)
         {
             // Apply RRC on the baseband sample
-            float           elem   = static_cast< float >(baseband.data[i]);
-            if(invertPhase) elem   = 0.0f - elem;
-            int16_t         sample = static_cast< int16_t >(M17::rrc_24k(elem));
+            float   elem   = static_cast< float >(samples[i]);
+            firfilt_rrrf_push(rrcos_filt, elem);
+            firfilt_rrrf_execute(rrcos_filt, &elem);
+            int16_t sample = static_cast<int16_t>(elem);
 
             // Update correlator and sample filter for correlation thresholds
             correlator.sample(sample);
@@ -265,7 +244,7 @@ bool M17Demodulator::update(const bool invertPhase)
                 case DemodState::UNLOCKED:
                 {
                     int32_t syncThresh = static_cast< int32_t >(corrThreshold * 33.0f);
-                    int8_t  syncStatus = streamSync.update(correlator, syncThresh, -syncThresh);
+                    int8_t  syncStatus = packetSync.update(correlator, syncThresh, -syncThresh);
 
                     if(syncStatus != 0)
                         demodState = DemodState::SYNCED;
@@ -275,7 +254,7 @@ bool M17Demodulator::update(const bool invertPhase)
                 case DemodState::SYNCED:
                 {
                     // Set sampling point and deviation, zero frame symbol count
-                    samplingPoint  = streamSync.samplingIndex();
+                    samplingPoint  = packetSync.samplingIndex();
                     outerDeviation = correlator.maxDeviation(samplingPoint);
                     frameIndex     = 0;
 
@@ -331,7 +310,7 @@ bool M17Demodulator::update(const bool invertPhase)
 
                     // Find the new correlation peak
                     int32_t syncThresh = static_cast< int32_t >(corrThreshold * 33.0f);
-                    int8_t  syncStatus = streamSync.update(correlator, syncThresh, -syncThresh);
+                    int8_t  syncStatus = packetSync.update(correlator, syncThresh, -syncThresh);
 
                     if(syncStatus != 0)
                     {
@@ -346,7 +325,7 @@ bool M17Demodulator::update(const bool invertPhase)
                             if(hd <= 1)
                             {
                                 outerDeviation = correlator.maxDeviation(samplingPoint);
-                                samplingPoint  = streamSync.samplingIndex();
+                                samplingPoint  = packetSync.samplingIndex();
                                 missedSyncs    = 0;
                                 demodState     = DemodState::LOCKED;
                                 break;
@@ -385,7 +364,7 @@ bool M17Demodulator::update(const bool invertPhase)
     return newFrame;
 }
 
-int8_t M17Demodulator::updateFrame(stream_sample_t sample)
+int8_t M17Demodulator::updateFrame(int16_t sample)
 {
     int8_t symbol;
 
@@ -429,7 +408,8 @@ void M17Demodulator::reset()
     demodState  = DemodState::INIT;
     initCount   = RX_SAMPLE_RATE / 50;  // 50ms of init time
 
-    dsp_resetFilterState(&dcrState);
+    dcr.reset();
+    firfilt_rrrf_reset(rrcos_filt);
 }
 
 

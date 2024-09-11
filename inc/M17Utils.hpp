@@ -149,4 +149,53 @@ inline std::array< int8_t, 4 > byteToSymbols(uint8_t value)
 
 }      // namespace M17
 
+
+class dc_remover
+{
+    private:
+    static constexpr float alpha = 0.999f;
+    bool initialized;
+    float x_prev;
+    float y_prev;
+
+    public:
+    dc_remover()
+    {
+        reset();
+    }
+
+    void reset()
+    {
+        x_prev = 0.0f;
+        y_prev = 0.0f;
+        initialized = false;
+    }
+
+    void process_samples(int16_t *samples, std::size_t length)
+    {
+        if(length < 2)
+            return;
+        
+        std::size_t pos = 0;
+
+        if(!initialized)
+        {
+            x_prev = static_cast<float>(samples[0]);
+            initialized = true;
+            pos = 1;
+        }
+
+        for(; pos < length; pos++)
+        {
+            float x = static_cast<float>(samples[pos]);
+            float y = x - x_prev + alpha * y_prev;
+
+            x_prev = x;
+            y_prev = y;
+            samples[pos] = static_cast<int16_t>(y + 0.5f);
+        }
+    }
+
+
+};
 #endif // M17_UTILS_H

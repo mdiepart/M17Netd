@@ -29,6 +29,8 @@
 #include <cstddef>
 #include <cstdint>
 
+using namespace std;
+
 /**
  * Class for IIR filter with configurable coefficients.
  * Adapted from the original implementation by Rob Riggs, Mobilinkd LLC.

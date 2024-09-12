@@ -35,11 +35,11 @@ class sdrnode
     int gpio_set_level(unsigned gpio, bool value);
 
     // PCM/I2S
-    static constexpr unsigned ideal_rate   = 96000;
+    static constexpr unsigned ideal_rate   = 96000; /** Ideal baseband sampling rate */
     unsigned int pcm_rate = ideal_rate;
-    static constexpr const char *audio_rx_dev     = "hw:0,0"; // Or i2s0?
-    static constexpr const char *audio_tx_dev     = "hw:0,0"; // Or i2s0?
-    // We isolate pcm_access here to ease up moving to mmap mode
+    static constexpr const char *audio_rx_dev     = "default:GDisDACout";
+    static constexpr const char *audio_tx_dev     = "default:GDisDACout";
+    
     static constexpr snd_pcm_access_t pcm_access = SND_PCM_ACCESS_RW_INTERLEAVED;
     snd_pcm_t *pcm_hdl;
 

@@ -196,7 +196,7 @@ int sdrnode::gpio_set_level(unsigned gpio, bool value)
 int sdrnode::open_pcm_rx()
 {
     int err;
-    //snd_pcm_hw_params_t *pcm_hw_params;
+    snd_pcm_hw_params_t *pcm_hw_params;
 
     err = snd_pcm_open(&pcm_hdl, audio_rx_dev, SND_PCM_STREAM_CAPTURE, 0);
     if (err < 0) {
@@ -206,26 +206,16 @@ int sdrnode::open_pcm_rx()
         return -1;
     }
 
-    /*snd_pcm_hw_params_malloc(&pcm_hw_params);
+    snd_pcm_hw_params_malloc(&pcm_hw_params);
     err = snd_pcm_hw_params_any(pcm_hdl, pcm_hw_params);
     if (err < 0) {
         cerr << "Cannot initialize hardware parameter structure: " 
         << snd_strerror(err) << endl;
         pcm_hdl = nullptr;
         return err;
-    }*/
+    }
 
-    err = snd_pcm_set_params(pcm_hdl, SND_PCM_FORMAT_S16,
-                             pcm_access, 2, ideal_rate, false,
-                             100000 /* default latency of 100ms*/);
-    if(err < 0)
-    {
-        cerr << "Cannot set PCM parameters: " << snd_strerror(err) << endl;
-        pcm_hdl = nullptr;
-        return -1;
-    }                         
-
-    /*err = snd_pcm_hw_params_set_access(pcm_hdl, pcm_hw_params, pcm_access);
+    err = snd_pcm_hw_params_set_access(pcm_hdl, pcm_hw_params, pcm_access);
     if (err < 0) {
         cerr << "Cannot set access type: " << snd_strerror(err) << endl;
         pcm_hdl = nullptr;
@@ -246,8 +236,6 @@ int sdrnode::open_pcm_rx()
         pcm_hdl = nullptr;
         return err;
     }
-    cout << "PCM audio device " << audio_rx_dev 
-         << ": exact sample rate set to "<< to_string(pcm_rate) << endl;
 
     err = snd_pcm_hw_params_set_channels(pcm_hdl, pcm_hw_params, 2);
     if (err < 0) {
@@ -263,7 +251,7 @@ int sdrnode::open_pcm_rx()
         return err;
     }
 
-    snd_pcm_hw_params_free(pcm_hw_params);*/
+    snd_pcm_hw_params_free(pcm_hw_params);
 
     cout << "pcm_hw_params set successfuly" << endl;
 
@@ -279,8 +267,8 @@ int sdrnode::open_pcm_rx()
 
 int sdrnode::open_pcm_tx()
 {
-     int err;
-    //snd_pcm_hw_params_t *pcm_hw_params;
+    int err;
+    snd_pcm_hw_params_t *pcm_hw_params;
 
     err = snd_pcm_open(&pcm_hdl, audio_rx_dev, SND_PCM_STREAM_PLAYBACK, 0);
     if (err < 0) {
@@ -290,26 +278,16 @@ int sdrnode::open_pcm_tx()
         return err;
     }
 
-    /*snd_pcm_hw_params_malloc(&pcm_hw_params);
+    snd_pcm_hw_params_malloc(&pcm_hw_params);
     err = snd_pcm_hw_params_any(pcm_hdl, pcm_hw_params);
     if (err < 0) {
-        cerr << "Cannot initialize hardware parameter structure: " 
-        << snd_strerror(err) << endl;
+        cerr << "Cannot initialize hardware parameter structure: "
+             << snd_strerror(err) << endl;
         pcm_hdl = nullptr;
         return err;
-    }*/
+    }
 
-    err = snd_pcm_set_params(pcm_hdl, SND_PCM_FORMAT_S16_LE,
-                             pcm_access, 2, ideal_rate, false,
-                             100000 /* default latency of 100ms*/);
-    if(err < 0)
-    {
-        cerr << "Cannot set PCM parameters: " << snd_strerror(err) << endl;
-        pcm_hdl = nullptr;
-        return err;
-    }                         
-
-    /*err = snd_pcm_hw_params_set_access(pcm_hdl, pcm_hw_params, pcm_access);
+    err = snd_pcm_hw_params_set_access(pcm_hdl, pcm_hw_params, pcm_access);
     if (err < 0) {
         cerr << "Cannot set access type: " << snd_strerror(err) << endl;
         pcm_hdl = nullptr;
@@ -330,8 +308,6 @@ int sdrnode::open_pcm_tx()
         pcm_hdl = nullptr;
         return err;
     }
-    cout << "PCM audio device " << audio_rx_dev 
-         << ": exact sample rate set to "<< to_string(pcm_rate) << endl;
 
     err = snd_pcm_hw_params_set_channels(pcm_hdl, pcm_hw_params, 2);
     if (err < 0) {
@@ -347,7 +323,7 @@ int sdrnode::open_pcm_tx()
         return err;
     }
 
-    snd_pcm_hw_params_free(pcm_hw_params); */
+    snd_pcm_hw_params_free(pcm_hw_params);
 
     cout << "pcm_hw_params set successfuly" << endl;
 

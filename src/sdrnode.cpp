@@ -138,6 +138,9 @@ sdrnode::sdrnode(const unsigned long rx_freq, const unsigned long tx_freq) : sx1
 
     sx1255.init();
 
+    sx1255.set_rx_freq(rx_frequency);
+    sx1255.set_tx_freq(tx_frequency);
+
     // Open PCM device for RX
     open_pcm_rx();
 

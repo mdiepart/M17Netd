@@ -396,12 +396,15 @@ size_t sdrnode::receive(float *rx, size_t n)
             return 0;
         snd_pcm_sframes_t read = snd_pcm_readi(pcm_hdl, buff, n);
         
-        if(read <= 0)
+        if(read < 0)
+            read = snd_pcm_recover(pcm_hdl, read, 0);
+        if(read < 0)
         {
+            cout << "pcm read returned " << read << endl;
             delete[](buff);
             return 0;
         }
-        else
+        else if(read > 0)
         {
             int16_to_float(buff, rx, (size_t)read*2);
             delete[](buff);
@@ -423,6 +426,9 @@ size_t sdrnode::transmit(const float *tx, size_t n)
         
         float_to_int16(const_cast<float*>(tx), buff, n*2);
         snd_pcm_sframes_t written = snd_pcm_writei(pcm_hdl, buff, n);
+
+        if(written < 0)
+            written = snd_pcm_recover(pcm_hdl, written, 0);
 
         delete[](buff);
 

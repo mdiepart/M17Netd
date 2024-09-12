@@ -78,7 +78,8 @@ int sx1255_drv::set_tx_freq(unsigned long freq)
 
     if(ret < 0)
         return -1;
-    
+
+    cout << "Set TX frequency to " << freq/1000 << " kHz." << endl;
     return 0;
 }
 
@@ -105,7 +106,8 @@ int sx1255_drv::set_rx_freq(unsigned long freq)
 
     if(ret < 0)
         return -1;
-    
+
+    cout << "Set RX frequency to " << freq/1000 << " kHz." << endl;
     return 0;    
 }
 

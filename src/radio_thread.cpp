@@ -56,7 +56,7 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
     demodulator.init();
 
     // Create and initialize the radio
-    sdrnode radio = sdrnode(radio_cfg.rx_freq, radio_cfg.tx_freq);
+    sdrnode radio = sdrnode(radio_cfg.rx_freq, radio_cfg.tx_freq, radio_cfg.ppm);
     radio.switch_rx();
 
     bool channel_bsy = true;

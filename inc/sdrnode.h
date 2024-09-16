@@ -99,7 +99,7 @@ class sdrnode
 
 
     public:
-    sdrnode(const unsigned long rx_freq, const unsigned long tx_freq);
+    sdrnode(const unsigned long rx_freq, const unsigned long tx_freq, int ppm);
     ~sdrnode();
     /**
      * Switches the sdrnode unit in RX mode. Once in RX mode, the samples can be querried with receive()

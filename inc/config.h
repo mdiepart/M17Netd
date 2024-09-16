@@ -25,6 +25,7 @@ typedef struct
     unsigned long tx_freq; /* TX Frequency */
     unsigned long rx_freq; /* RX Frequency */
     float         k;       /* FM Modulation index */
+    float         ppm;     /* Frequency correction in ppm */
 } radio_thread_cfg;
 
 class config

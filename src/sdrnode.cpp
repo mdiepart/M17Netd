@@ -119,8 +119,14 @@ void int16_to_float(int16_t *input, float *output, const size_t n)
 #endif
 }
 
-sdrnode::sdrnode(const unsigned long rx_freq, const unsigned long tx_freq) : sx1255(spi_devname)
+sdrnode::sdrnode(unsigned long rx_freq, unsigned long tx_freq, int ppm) : sx1255(spi_devname)
 {
+    unsigned long corr = (tx_freq*ppm)/1000000;
+    tx_freq += corr;
+
+    corr = (rx_freq*ppm)/1000000;
+    rx_freq += corr;
+
     if(tx_freq < 400e6 || tx_freq > 510e6)
         throw invalid_argument("TX frequency is outside the [400,510] MHz range.");
 

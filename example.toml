@@ -12,6 +12,7 @@ MTU=822
 tx_frequency=433475000
 rx_frequency=433475000
 k_mod=0.2
+ppm=-20
 
 [[peers]]
 callsign="ON4MOD-2"

@@ -30,6 +30,7 @@ int config::getRadioConfig(radio_thread_cfg &radio_cfg) const
     radio_cfg.rx_freq = config_tbl["radio"]["rx_frequency"].value_or(0UL);
     radio_cfg.tx_freq = config_tbl["radio"]["tx_frequency"].value_or(0UL);
     radio_cfg.k = config_tbl["radio"]["k_mod"].value_or(0.0f);
+    radio_cfg.ppm = config_tbl["radio"]["ppm"].value_or(0);
 
     return EXIT_SUCCESS;
 }

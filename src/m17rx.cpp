@@ -138,7 +138,7 @@ int m17rx::add_frame(array<uint16_t, 2*SYM_PER_FRA> frame)
         break;
 
         default:
-            cerr << "m17rx: Unknown M17 sync word (0x" << hex << sync_word << ")." << endl;
+            cerr << "m17rx: Unknown M17 sync word (0x" << hex << sync_word << dec << ")." << endl;
             break;
     }
 

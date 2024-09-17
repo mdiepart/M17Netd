@@ -22,6 +22,7 @@ class radio_simplex {
 
     private:
     static constexpr size_t block_size = 960; // Samples block size, 10ms of baseband at 96000 kSps
+
     freqmod fmod;
     freqdem fdem;
 };

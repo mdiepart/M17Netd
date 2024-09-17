@@ -21,7 +21,7 @@ using namespace std;
 atomic_bool tun_dev_ready = false;
 string tun_name;
 
-void tun_thread_read::operator()(atomic_bool &running, const config &cfg, 
+void tun_thread_read::operator()(atomic_bool &running, const config &cfg,
                                  ConsumerProducerQueue<shared_ptr<vector<uint8_t>>> &from_net)
 {
     tunthread_cfg if_cfg;
@@ -47,10 +47,10 @@ void tun_thread_read::operator()(atomic_bool &running, const config &cfg,
     interface.setMTU(if_cfg.mtu);
 
     // Bring interface UP
-    interface.setUpDown(true); // Up  
+    interface.setUpDown(true); // Up
 
     // Process peers
-    for(auto const &p : if_cfg.peers)  
+    for(auto const &p : if_cfg.peers)
     {
         interface.addRoutesForPeer(p);
     }
@@ -62,14 +62,14 @@ void tun_thread_read::operator()(atomic_bool &running, const config &cfg,
     while( running )
     {
         packet = interface.getPacket(ref(running));
-        
+
         if(packet->empty())
         {
             std::cerr << "getPacket returned an empty vector. Errno = " << errno << std::endl;
         }
         else{
             struct ip *pkt = reinterpret_cast<struct ip *>(packet->data());
-        
+
             if(pkt->ip_v != 4)
             {
                 std::cerr << "Received an IP packet which is not ip V4" << std::endl;
@@ -80,7 +80,7 @@ void tun_thread_read::operator()(atomic_bool &running, const config &cfg,
     }
 }
 
-void tun_thread_write::operator()(atomic_bool &running, const config &cfg, 
+void tun_thread_write::operator()(atomic_bool &running, const config &cfg,
                                   ConsumerProducerQueue<shared_ptr<m17rx>> &to_net)
 {
     // Wait for tun device to be ready
@@ -130,7 +130,7 @@ void tun_thread_write::operator()(atomic_bool &running, const config &cfg,
                     {
                         payload.erase(payload.cbegin()); // Remove type specifier
                         payload.erase(payload.cend() - 2, payload.cend()); // Remove CRC
-                        interface.sendPacket(payload); // Send packet 
+                        interface.sendPacket(payload); // Send packet
                     }
                     else
                     {
@@ -140,7 +140,7 @@ void tun_thread_write::operator()(atomic_bool &running, const config &cfg,
 
             }
         }
-        
+
     }
 
 }

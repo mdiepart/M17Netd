@@ -12,9 +12,9 @@
  * DISCLAIMER:
  * I have no idea who wrote the following file, who to credit or
  * the license under which it is published.
- * 
+ *
  * This file was slightly modified to include timeouts and fix compilation errors
- * 
+ *
  * Morgan Diepart 08/2024
  */
 
@@ -43,12 +43,12 @@ class ConsumerProducerQueue
 public:
 
     ConsumerProducerQueue(int mxsz) : maxSize(mxsz)
-    { 
+    {
         timeout = std::chrono::seconds(1);
     }
 
     ConsumerProducerQueue(std::string qName, int mxsz) : queueName(qName), maxSize(mxsz)
-    { 
+    {
         timeout = std::chrono::seconds(1);
     }
 
@@ -64,14 +64,14 @@ public:
     {
         int L = 0 ;
         std::unique_lock<std::mutex> lock(mutex);
-        auto res = cond.wait_for(lock, timeout, [this]() { 
-            return !isFull(); 
+        auto res = cond.wait_for(lock, timeout, [this]() {
+            return !isFull();
         });
         if(res == false)
         {
             return -1; // Timed-out
         }
-        cpq.push(request); 
+        cpq.push(request);
         L = cpq.size();
         lock.unlock();
         cond.notify_all();
@@ -82,7 +82,7 @@ public:
     {
         int L = 0 ;
         std::unique_lock<std::mutex> lock(mutex);
-        auto ret = cond.wait_for(lock, timeout, [this]() { 
+        auto ret = cond.wait_for(lock, timeout, [this]() {
             return !isEmpty();
         });
         if(ret == false)

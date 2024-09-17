@@ -432,7 +432,7 @@ int8_t M17Demodulator::updateFrame(int16_t sample)
         symbol = -1;
         demodFrame->at(frameIndex++) = 0xFFFF;
         demodFrame->at(frameIndex++) = 0x0000;
-    }    
+    }
 
     if(frameIndex >= 2*M17_FRAME_SYMBOLS)
     {

@@ -22,7 +22,7 @@ int config::getTunConfig(tunthread_cfg &tun_cfg) const
     tun_cfg.peers = getPeers();
 
 
-    return EXIT_SUCCESS;    
+    return EXIT_SUCCESS;
 }
 
 int config::getRadioConfig(radio_thread_cfg &radio_cfg) const

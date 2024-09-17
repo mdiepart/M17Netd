@@ -9,9 +9,9 @@
 /**
  * This class handles the configuration and settings of an SX1255 IC.
  * It does not handle the baseband data transfer.
- * 
+ *
  * Use this class to set all the TX/RX/Other parameters that are transfered using the SPI interface.
- * 
+ *
  * The gains can be set using ad-hoc functions. Other parameters must be set at compile time.
  */
 class sx1255_drv
@@ -24,7 +24,7 @@ class sx1255_drv
      * in the rest of this class
      */
     int init();
-    
+
     /** Transmitter DAC gain */
     enum dac_gain {
         DAC_GAIN_MAX_min9 = 0,  // Max gain - 9dB
@@ -45,76 +45,76 @@ class sx1255_drv
 
     /**
      * Sets the TX frequency of the SX1255 to freq
-     * 
+     *
      * @param freq the frequency in Hz
-     * 
+     *
      * @return 0 on success, -1 on error
      */
     int set_tx_freq(unsigned long freq);
 
     /**
      * Sets the gain of the TX DAC to gain
-     * 
+     *
      * @param gain the gain of the dac
-     * 
+     *
      * @return 0 on success, -1 on error
      */
     int set_dac_gain(dac_gain gain = DAC_GAIN_MAX_min3);
 
     /**
      * Sets the gain of the TX mixer
-     * 
+     *
      * @param gain, the gain to set. The actual gain will be -37.5 + 2*gain (in dB)
      *          gain must be between 0 and 15.
-     * 
+     *
      * @return 0 on success, -1 on error
      */
     int set_tx_mix_gain(unsigned char gain = 14);
 
     /**
      * Sets the RX frequency of the device
-     * 
+     *
      * @param freq the frequency in Hz
-     * 
+     *
      * @return 0 on success, -1 on error
      */
     int set_rx_freq(unsigned long freq);
 
     /**
      * Sets the RX LNA gain
-     * 
+     *
      * @param gain the gain of the LNA
-     * 
+     *
      * @return 0 on success, -1 on error
      */
     int set_lna_gain(lna_gain gain = LNA_GAIN_MAX);
 
     /**
      * Sets the RX Programmable Gain Array of the device
-     * 
+     *
      * @param gain the gain of the PGA. The actual gain will be 2*gain dB above the lowest gain (unspecified)
-     * 
+     *
      * @return 0 on success, -1 on error
      */
     int set_rx_pga_gain(unsigned char gain = 15);
 
     /**
      * Switch the device to RX mode.
-     * 
+     *
      * @return 0 on success, -1 on error
      */
     int switch_rx();
 
     /**
      * Switch the device to TX mode.
-     * 
+     *
      * @return 0 on success, -1 on error
      */
     int switch_tx();
 
     /**
      * Querries the version number of the device.
-     * 
+     *
      * @return the version number of the device
      */
     uint8_t read_version();
@@ -147,7 +147,7 @@ class sx1255_drv
 
     // interpolation/decimation factor = 8*3^1*2^4 = 384
     static constexpr unsigned char int_dec_mantisse = 0;
-    static constexpr unsigned char int_dec_m_parameter = 0x01; 
+    static constexpr unsigned char int_dec_m_parameter = 0x01;
     static constexpr unsigned char int_dec_n_parameter = 0x04;
     static constexpr unsigned char iism_truncation = 0; // Alignment on LSB
 
@@ -212,7 +212,7 @@ class sx1255_drv
 
     static inline uint8_t RXFE2()
     {
-        return (rx_adc_bw << 5) | (rx_adc_trim << 2) | rx_pga_bw; 
+        return (rx_adc_bw << 5) | (rx_adc_trim << 2) | rx_pga_bw;
     }
 
     static inline uint8_t RXFE3()

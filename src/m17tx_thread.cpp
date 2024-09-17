@@ -24,15 +24,15 @@ class m17_route
     public:
     /**
      * Creates a route entry from an IP V4 network using CIDR notation
-     * i.e. 172.16.0.0/12 
+     * i.e. 172.16.0.0/12
     */
     m17_route(const string_view &route_cidr)
     {
         // Parse the CIDR netmask length
         std::size_t idx = route_cidr.find_first_of('/');
-        
+
         if(idx == std::string::npos)
-        { 
+        {
             mask_length = 32;
         }
         else
@@ -57,7 +57,7 @@ class m17_route
             mask_length = mask_len;
         }
 
-        
+
         route.s_addr = inet_addr(std::string(route_cidr.substr(0, idx)).c_str()) & getMask().s_addr;
     }
 
@@ -103,7 +103,7 @@ class m17_route
                 && (lhs.route.s_addr == rhs.route.s_addr);
     }
 
-    // Comparison against an IP address 
+    // Comparison against an IP address
     friend bool operator<(const m17_route &lhs, const in_addr &ip)
     {
         return lhs.route.s_addr < (ip.s_addr & lhs.getMask().s_addr);
@@ -137,7 +137,7 @@ void m17tx_thread::operator()(atomic_bool &running, const config &cfg,
 
         if(callsign_map.find(m17_route(p.ip)) == callsign_map.end())
         {
-            std::cout << "Routes do not yet contain IP of peer " << p.callsign << 
+            std::cout << "Routes do not yet contain IP of peer " << p.callsign <<
             " in the list. Adding a route to this specific peer." << std::endl;
             callsign_map.insert(std::make_pair(m17_route(p.ip), p.callsign));
         }
@@ -161,7 +161,7 @@ void m17tx_thread::operator()(atomic_bool &running, const config &cfg,
                      "172.16.0.8", "172.16.0.9",
                      "172.16.0.16", "172.16.0.17",
                      "10.0.0.7"};
-                    
+
     static in_addr ip;
     for(size_t i = 0; i < 8; i++)
     {
@@ -190,7 +190,7 @@ void m17tx_thread::operator()(atomic_bool &running, const config &cfg,
         auto dst = callsign_map.find(packet->ip_dst);
         char ip[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &(packet->ip_dst), ip, INET_ADDRSTRLEN);
-        
+
         if(dst == callsign_map.end())
         {
             cerr << "Received a packet for \"" << ip << "\" but no route matches this address." << endl;

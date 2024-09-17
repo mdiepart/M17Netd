@@ -62,7 +62,7 @@ int m17rx::add_frame(array<uint16_t, 2*SYM_PER_FRA> frame)
         cerr << "m17rx: cannot add another frame to a packet in error state" << endl;
         return -1;
     }
-    
+
     array<uint16_t, 2*SYM_PER_PLD> deinterleaved;
 
     // De-randomize the last 368 bits
@@ -77,7 +77,7 @@ int m17rx::add_frame(array<uint16_t, 2*SYM_PER_FRA> frame)
     {
         // If bit is closer to 1
         if(frame[i] >= 0x7FFF)
-        {   
+        {
             sync_word++;
         }
         // Shift left
@@ -110,7 +110,7 @@ int m17rx::add_frame(array<uint16_t, 2*SYM_PER_FRA> frame)
             // Decode 368 type-3 soft bits to type-1 bits
             corrected_errors += viterbi_decode_punctured(pkt_type1.data(), deinterleaved.data(),
                                     puncture_pattern_3, deinterleaved.size(), sizeof(puncture_pattern_3));
-            
+
             // Check that the frame number is consistent with what have been received previously
             if(pkt_type1[25] & (1 << 5)) // Check if this is the last frame
             {

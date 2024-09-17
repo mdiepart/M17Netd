@@ -26,10 +26,10 @@ class sdrnode
 
     /**
      * Sets the level of a gpio pin
-     * 
+     *
      * @param gpio pin number whoe level is to be set
      * @param value value to set: true for high, false for low
-     * 
+     *
      * @return 0 on success, -1 on error
      */
     int gpio_set_level(unsigned gpio, bool value);
@@ -39,29 +39,29 @@ class sdrnode
     unsigned int pcm_rate = ideal_rate;
     static constexpr const char *audio_rx_dev     = "default:GDisDACout";
     static constexpr const char *audio_tx_dev     = "default:GDisDACout";
-    
+
     static constexpr snd_pcm_access_t pcm_access = SND_PCM_ACCESS_RW_INTERLEAVED;
     snd_pcm_t *pcm_hdl;
 
     /**
      * Open the PCM device in TX mode
-     * 
+     *
      * @return 0 on success, -1 on error
      */
     int open_pcm_tx();
 
     /**
      * Open the PCB device in RX mode
-     * 
+     *
      * @return 0 on success, -1 on error
      */
     int open_pcm_rx();
 
     /**
-     * Closes the PCM device. 
+     * Closes the PCM device.
      */
     void close_pcm();
-    
+
 
     // SX1255
     static constexpr const char *spi_devname = "/dev/spidev1.0";
@@ -76,7 +76,7 @@ class sdrnode
 
         if( usleep(10000) < 0)
             cerr << "usleep was interrupted while preparing to TX." << endl;
-        
+
         //gpio_set_level( gpio_PMAX_BUFA_enable, 1 ); // ??
         gpio_set_level( gpio_PA_enable, 1 );
         gpio_set_level( gpio_bias_enable, 1 );
@@ -103,26 +103,26 @@ class sdrnode
     ~sdrnode();
     /**
      * Switches the sdrnode unit in RX mode. Once in RX mode, the samples can be querried with receive()
-     * 
+     *
      * @return 0 on success, -1 on error
      */
     int switch_rx();
 
     /**
      * Switches the sdrnode unit in TX mode. Once in TX mode, samples can be provided with transmit()
-     * 
+     *
      * @return 0 on success, -1 on error
      */
     int switch_tx();
 
     /**
      * Reads at most n samples from the radio
-     * This operation will read a number n of samples. Each 
+     * This operation will read a number n of samples. Each
      * sample containing two floats, it will read at most 2n floats
-     * 
+     *
      * @param rx buffer containing 2n floats
      * @param n number of I/Q samples to send. One sample is composed of 2 floats
-     * 
+     *
      * @return the number of samples read
      */
     size_t receive(float *rx, const size_t n);
@@ -131,10 +131,10 @@ class sdrnode
      * Writes at most n samples to the radio
      * This operation will write a number n of samples. Each sample containing
      * two floats, it will write at most 2n floats.
-     * 
+     *
      * @param tx buffer containing 2n floats
      * @param n number of I/Q samples to send. One sample is composed of 2 floats
-     * 
+     *
      * @return the number of samples written
      */
     size_t transmit(const float *tx, const size_t n);

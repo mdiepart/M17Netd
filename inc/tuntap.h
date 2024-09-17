@@ -11,7 +11,7 @@ class TunDevice {
     public:
     TunDevice(const std::string_view &name);
     ~TunDevice();
-    
+
     std::shared_ptr<std::vector<uint8_t>> getPacket(std::atomic<bool> &running);
     int sendPacket(const std::vector<uint8_t> &pkt);
     void setIPV4(std::string_view ip);

@@ -17,14 +17,14 @@
 
 /**
  * Convert an array of n float to an array of n 16 bits signed integers
- * 
+ *
  * Uses ARM Neon extension if available
  */
 void float_to_int16(float *input, int16_t *output, const size_t n);
 
 /**
  * Convert an array of n 16 bits fixed point signed integers to an array of floats
- * 
+ *
  * Uses ARM Neon extension if available
  */
 void int16_to_float(int16_t *input, float *output, const size_t n);
@@ -174,7 +174,7 @@ int sdrnode::gpio_set_level(unsigned gpio, bool value)
 
     fd = open(gpio_filename, O_WRONLY);
     if (fd < 0) {
-        cerr << "gpioSetValue unable to open gpio " 
+        cerr << "gpioSetValue unable to open gpio "
              << to_string(gpio) << ": " << strerror(errno)
              << "." << endl;
         return -1;
@@ -191,7 +191,7 @@ int sdrnode::gpio_set_level(unsigned gpio, bool value)
     }
     else {
         if (write(fd, "0", 2) != 2) {
-            cerr << "gpioSetValue OFF error :gpio " 
+            cerr << "gpioSetValue OFF error :gpio "
                  <<  to_string(gpio) << ": " << strerror(errno)
                  << "." << endl;
             close(fd);
@@ -218,7 +218,7 @@ int sdrnode::open_pcm_rx()
     snd_pcm_hw_params_malloc(&pcm_hw_params);
     err = snd_pcm_hw_params_any(pcm_hdl, pcm_hw_params);
     if (err < 0) {
-        cerr << "Cannot initialize hardware parameter structure: " 
+        cerr << "Cannot initialize hardware parameter structure: "
         << snd_strerror(err) << endl;
         pcm_hdl = nullptr;
         return err;
@@ -264,7 +264,7 @@ int sdrnode::open_pcm_rx()
 
     cout << "pcm_hw_params set successfuly" << endl;
 
-    err = snd_pcm_prepare(pcm_hdl); 
+    err = snd_pcm_prepare(pcm_hdl);
     if (err < 0) {
         cerr << "cannot prepare audio interface for use: " << snd_strerror(err) << endl;
         pcm_hdl = nullptr;
@@ -336,14 +336,14 @@ int sdrnode::open_pcm_tx()
 
     cout << "pcm_hw_params set successfuly" << endl;
 
-    err = snd_pcm_prepare(pcm_hdl); 
+    err = snd_pcm_prepare(pcm_hdl);
     if (err < 0) {
         cerr << "cannot prepare audio interface for use: " << snd_strerror(err) << endl;
         pcm_hdl = nullptr;
         return err;
     }
 
-    return 0;   
+    return 0;
 }
 
 void sdrnode::close_pcm()
@@ -400,11 +400,11 @@ size_t sdrnode::receive(float *rx, size_t n)
     {
         // Check that we are in a state where we can receive data
         int16_t *buff = new int16_t[n*2];
-        
+
         if(buff == nullptr)
             return 0;
         snd_pcm_sframes_t read = snd_pcm_readi(pcm_hdl, buff, n);
-        
+
         if(read < 0)
             read = snd_pcm_recover(pcm_hdl, read, 0);
         if(read < 0)

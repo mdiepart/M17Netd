@@ -31,7 +31,7 @@ target_compile_options(M17Netd PRIVATE
 	-Wall
 	$<$<CONFIG:Debug>:
 		-g
-	>	
+	>
 	$<$<CONFIG:Release>:
 		-O2
 	>

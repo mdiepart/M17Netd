@@ -28,7 +28,7 @@ spi_dev::spi_dev(string dev_name, int mode, int word_len, int speed)
     this->mode = mode;
     if(ioctl(fd, SPI_IOC_WR_MODE, &(this->mode)) < 0)
     {
-        throw runtime_error("Failed to set bus mode on spi device " + dev_name 
+        throw runtime_error("Failed to set bus mode on spi device " + dev_name
                             + ": " + strerror(errno) + "." );
     }
 
@@ -36,14 +36,14 @@ spi_dev::spi_dev(string dev_name, int mode, int word_len, int speed)
     endianness = 0;
     if(ioctl(fd, SPI_IOC_WR_LSB_FIRST, &endianness) < 0)
     {
-        throw runtime_error("Failed to set SPI (" + dev_name 
+        throw runtime_error("Failed to set SPI (" + dev_name
         + ") in MSB mode: " + strerror(errno) + ".");
     }
 
     this->word_len = word_len;
     if(ioctl(fd, SPI_IOC_WR_BITS_PER_WORD, &(this->word_len)) < 0)
     {
-        throw runtime_error("Failed to set SPI (" + dev_name 
+        throw runtime_error("Failed to set SPI (" + dev_name
         + ") word length: " + strerror(errno) + ".");
     }
 
@@ -54,7 +54,7 @@ spi_dev::spi_dev(string dev_name, int mode, int word_len, int speed)
         + ") max speed: " + strerror(errno) + ".");
     }
 
-    cout << "Opened SPI device " << dev_name << endl;    
+    cout << "Opened SPI device " << dev_name << endl;
 }
 
 spi_dev::spi_dev()

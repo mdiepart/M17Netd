@@ -41,7 +41,7 @@ TunDevice::TunDevice(const std::string_view &name)
         std::cerr << "Unable to open clone device for tuntap interface: error " << errno << std::endl;
         return;
     }
-       
+
     // Init structure memory
     memset(&ifr, 0, sizeof(ifr));
 
@@ -57,7 +57,7 @@ TunDevice::TunDevice(const std::string_view &name)
     {
         strncpy(ifr.ifr_name, dev, IFNAMSIZ);
     }
-       
+
     // Attempt to create the device
     err = ioctl(tun_fd, TUNSETIFF, (void *) &ifr);
     if( err < 0 ){
@@ -90,7 +90,7 @@ TunDevice::~TunDevice()
 }
 
 std::shared_ptr<std::vector<uint8_t>> TunDevice::getPacket(std::atomic<bool> &running)
-{    
+{
     uint8_t storage[mtu];
 
     struct timespec read_timeout = {.tv_sec = 1, .tv_nsec = 0}; // 1 sec timeout
@@ -102,7 +102,7 @@ std::shared_ptr<std::vector<uint8_t>> TunDevice::getPacket(std::atomic<bool> &ru
     {
         FD_ZERO(&read_fdset);
         FD_SET(tun_fd, &read_fdset);
-        
+
         int ret = pselect(tun_fd+1, &read_fdset, nullptr, nullptr, &read_timeout, nullptr);
         if(ret < 0)
         {
@@ -112,11 +112,11 @@ std::shared_ptr<std::vector<uint8_t>> TunDevice::getPacket(std::atomic<bool> &ru
         else if(ret == 0)
         {
             // Pselect timed out, retry
-            continue;            
+            continue;
         }
         else
         {
-            // tun_fd is the only filedescriptor monitored so if we arrive 
+            // tun_fd is the only filedescriptor monitored so if we arrive
             // here it will always be set, no need to check.
             n = read(tun_fd, storage, mtu);
             loop = false;
@@ -145,7 +145,7 @@ int TunDevice::sendPacket(const std::vector<uint8_t> &pkt)
 }
 
 void TunDevice::setIPV4(std::string_view ip)
-{   
+{
     int err;
 
     // Init ifr struct
@@ -160,7 +160,7 @@ void TunDevice::setIPV4(std::string_view ip)
     sai.sin_port = htons(0);
     sai.sin_addr.s_addr = inet_addr(ip.data());
 
-    // Copy ip to ifr struct    
+    // Copy ip to ifr struct
     memcpy(&ifr.ifr_addr, &sai, sizeof(struct sockaddr));
 
     // Set ip addr
@@ -180,7 +180,7 @@ void TunDevice::setUpDown(bool up)
 
     // Get flags
     ioctl(sock_fd, SIOCGIFFLAGS, (void *)&ifr);
-    
+
     if(up)
     {
 #ifdef IFF_NO_CARRIER
@@ -241,7 +241,7 @@ int TunDevice::addRoutesForPeer(const peer_t &peer)
     memset(&dst, 0, sizeof(struct sockaddr));
     memset(&gw, 0, sizeof(struct sockaddr));
     memset(&netmask, 0, sizeof(struct sockaddr));
-    
+
     dst.sin_family = AF_INET;
     gw.sin_family = AF_INET;
     netmask.sin_family = AF_INET;
@@ -279,8 +279,8 @@ int TunDevice::addRoutesForPeer(const peer_t &peer)
     {
         // Parse the CIDR netmask length
         std::size_t idx = r.find_first_of('/');
-        
-        if(idx == std::string::npos){ 
+
+        if(idx == std::string::npos){
             std::cerr << "No netmask length specified for route " << r << std::endl;
             return EXIT_FAILURE;
         }
@@ -301,7 +301,7 @@ int TunDevice::addRoutesForPeer(const peer_t &peer)
         if(cidr_mask < 0 || cidr_mask > 32)
         {
             std::cerr << "Invalid CIDR mask in route " << r << std::endl;
-            return EXIT_FAILURE;    
+            return EXIT_FAILURE;
         }
 
         // Convert from cidr to proper net mask
@@ -315,16 +315,16 @@ int TunDevice::addRoutesForPeer(const peer_t &peer)
         memcpy(&rt.rt_dst, &dst, sizeof(struct sockaddr));
 
         std::cout << "Adding route " << r << " to " << ifName << " routes." << std::endl;
-    
+
         int ret = ioctl(sock_fd, SIOCADDRT, &rt);
         if(ret < 0)
         {
-            std::cerr << "Could not add route \"" << r 
+            std::cerr << "Could not add route \"" << r
             << "\": ioctl error (" << strerror(errno) << ")." << std::endl;
             return EXIT_FAILURE;
         }
     }
-    
+
     return EXIT_SUCCESS;
 }
 

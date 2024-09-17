@@ -20,17 +20,17 @@
  *
  * Uses ARM Neon extension if available
  */
-void float_to_int16(float *input, int16_t *output, const size_t n);
+void float_to_int16(const float *input, int16_t *output, const size_t n);
 
 /**
  * Convert an array of n 16 bits fixed point signed integers to an array of floats
  *
  * Uses ARM Neon extension if available
  */
-void int16_to_float(int16_t *input, float *output, const size_t n);
+void int16_to_float(const int16_t *input, float *output, const size_t n);
 
 
-void float_to_int16(float *input, int16_t *output, const size_t n)
+void float_to_int16(const float *input, int16_t *output, const size_t n)
 {
 #ifdef __aarch64__
     int16x4_t out;
@@ -75,7 +75,7 @@ void float_to_int16(float *input, int16_t *output, const size_t n)
 #endif
 }
 
-void int16_to_float(int16_t *input, float *output, const size_t n)
+void int16_to_float(const int16_t *input, float *output, const size_t n)
 {
 #ifdef __aarch64__
     float32x4_t out;
@@ -119,22 +119,21 @@ void int16_to_float(int16_t *input, float *output, const size_t n)
 #endif
 }
 
-sdrnode::sdrnode(unsigned long rx_freq, unsigned long tx_freq, int ppm) : sx1255(spi_devname)
+sdrnode::sdrnode(const unsigned long rx_freq, const unsigned long tx_freq, const int ppm) : sx1255(spi_devname)
 {
-    unsigned long corr = (tx_freq*ppm)/1000000;
-    tx_freq += corr;
+    long corr = (static_cast<long>(tx_freq)*ppm)/1000000;
+    tx_frequency = tx_freq + corr;
 
-    corr = (rx_freq*ppm)/1000000;
-    rx_freq += corr;
+    corr = (static_cast<long>(rx_freq)*ppm)/1000000;
+    rx_frequency = rx_freq + corr;
 
-    if(tx_freq < 400e6 || tx_freq > 510e6)
+
+    if(tx_frequency < 400e6 || tx_frequency > 510e6)
         throw invalid_argument("TX frequency is outside the [400,510] MHz range.");
 
-    if(rx_freq < 400e6 || rx_freq > 510e6)
+    if(rx_frequency < 400e6 || rx_frequency > 510e6)
         throw invalid_argument("RX frequency is outside the [400,510] MHz range.");
 
-    tx_frequency = tx_freq;
-    rx_frequency = rx_freq;
 
     // Reset SX1255
     gpio_set_level(gpio_SX1255_reset, true);
@@ -393,7 +392,7 @@ int sdrnode::switch_tx()
     return 0;
 }
 
-size_t sdrnode::receive(float *rx, size_t n)
+size_t sdrnode::receive(complex<float> *rx, size_t n)
 {
     // TODO use snd_pcm_mmap_readi to avoid an unnecessary malloc and copy
     if(!tx_nRx)
@@ -415,7 +414,7 @@ size_t sdrnode::receive(float *rx, size_t n)
         }
         else if(read > 0)
         {
-            int16_to_float(buff, rx, (size_t)read*2);
+            int16_to_float(buff, reinterpret_cast<float*>(rx), (size_t)read*2);
             delete[](buff);
             return read;
         }
@@ -424,7 +423,7 @@ size_t sdrnode::receive(float *rx, size_t n)
     return 0;
 }
 
-size_t sdrnode::transmit(const float *tx, size_t n)
+size_t sdrnode::transmit(const complex<float> *tx, size_t n)
 {
     if(tx_nRx)
     {
@@ -432,8 +431,8 @@ size_t sdrnode::transmit(const float *tx, size_t n)
 
         if(buff == nullptr)
             return 0;
-        
-        float_to_int16(const_cast<float*>(tx), buff, n*2);
+
+        float_to_int16(reinterpret_cast<const float*>(tx), buff, n*2);
         snd_pcm_sframes_t written = snd_pcm_writei(pcm_hdl, buff, n);
 
         if(written < 0)

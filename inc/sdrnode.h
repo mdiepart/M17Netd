@@ -3,6 +3,7 @@
 #include <string>
 #include <cstdlib>
 #include <vector>
+#include <complex>
 
 #include <alsa/asoundlib.h>
 
@@ -62,7 +63,6 @@ class sdrnode
      */
     void close_pcm();
 
-
     // SX1255
     static constexpr const char *spi_devname = "/dev/spidev1.0";
     sx1255_drv sx1255;
@@ -99,8 +99,9 @@ class sdrnode
 
 
     public:
-    sdrnode(const unsigned long rx_freq, const unsigned long tx_freq, int ppm);
+    sdrnode(const unsigned long rx_freq, const unsigned long tx_freq, const int ppm);
     ~sdrnode();
+
     /**
      * Switches the sdrnode unit in RX mode. Once in RX mode, the samples can be querried with receive()
      *
@@ -118,25 +119,25 @@ class sdrnode
     /**
      * Reads at most n samples from the radio
      * This operation will read a number n of samples. Each
-     * sample containing two floats, it will read at most 2n floats
+     * sample containing one complex float.
      *
-     * @param rx buffer containing 2n floats
+     * @param rx buffer containing n complex floats
      * @param n number of I/Q samples to send. One sample is composed of 2 floats
      *
      * @return the number of samples read
      */
-    size_t receive(float *rx, const size_t n);
+    size_t receive(complex<float> *rx, const size_t n);
 
     /**
      * Writes at most n samples to the radio
      * This operation will write a number n of samples. Each sample containing
-     * two floats, it will write at most 2n floats.
+     * one complex float.
      *
-     * @param tx buffer containing 2n floats
+     * @param tx buffer containing n complex floats
      * @param n number of I/Q samples to send. One sample is composed of 2 floats
      *
      * @return the number of samples written
      */
-    size_t transmit(const float *tx, const size_t n);
+    size_t transmit(const complex<float> *tx, const size_t n);
 
 };

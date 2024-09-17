@@ -148,14 +148,14 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
 
     // Allocations
     // Allocate the RX samples with fftw so that it is aligned for SIMD
-    float *rx_samples = reinterpret_cast<float*>(fftwf_alloc_complex(block_size));
-    array<float, 2*block_size>  *tx_samples     = new array<float, 2*block_size>();
-    array<float, block_size>    *rx_baseband    = new array<float, block_size>();
+    complex<float>                      *rx_samples     = reinterpret_cast<complex<float>*>(fftwf_alloc_complex(block_size));
+    array<complex<float>, block_size>   *tx_samples     = new array<complex<float>, block_size>();
+    array<float, block_size>            *rx_baseband    = new array<float, block_size>();
 
     // FFT: we only compute the FFT of the first 512 points
     constexpr size_t fft_N = 512;
-    fftwf_complex *rx_samples_fft = reinterpret_cast<fftwf_complex *>(fftwf_alloc_complex(512));
-    fftwf_plan fft_plan = fftwf_plan_dft_1d(fft_N, reinterpret_cast<fftwf_complex*>(rx_samples), rx_samples_fft, FFTW_FORWARD, FFTW_MEASURE);
+    complex<float> *rx_samples_fft = reinterpret_cast<complex<float>*>(fftwf_alloc_complex(fft_N));
+    fftwf_plan fft_plan = fftwf_plan_dft_1d(fft_N, reinterpret_cast<fftwf_complex*>(rx_samples), reinterpret_cast<fftwf_complex*>(rx_samples_fft), FFTW_FORWARD, FFTW_MEASURE);
 
     // M17 Demodulator
     M17::M17Demodulator demodulator;

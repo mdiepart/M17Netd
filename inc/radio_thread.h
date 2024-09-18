@@ -21,8 +21,8 @@ class radio_simplex {
                     ConsumerProducerQueue<shared_ptr<m17rx>> &from_radio);
 
     private:
-    static constexpr size_t block_size = 960; // Samples block size, 10ms of baseband at 96000 kSps
-
+    static constexpr size_t block_size  = 960; /** Samples block size, 10ms of baseband at 96000 kSps */
+    static constexpr size_t fft_size    = 512; /** Block size to compute the FFT to assess channel occupency */
     freqmod fmod;
     freqdem fdem;
 };

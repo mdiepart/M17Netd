@@ -45,7 +45,7 @@ void float_to_int16(const float *input, int16_t *output, const size_t n)
     {
         in = vld1q_f32(input); // Load next 4 floats
         __builtin_prefetch(input+4, 0, 0); // Pre-fetch the next 4 floats, we read, lowest temporal locality.
-        tmp = vcvtq_n_s32_f32(in, 16); // Convert float to 16 bits fixed point (stored in 32 bits int).
+        tmp = vcvtq_n_s32_f32(in, 15); // Convert float to 16 bits fixed point (stored in 32 bits int).
         out = vmovn_s32(tmp); // narrows down the 32 bits to 16 bits integers.
         vst1_s16(output, out); // Store the converted number in output array.
         __builtin_prefetch(output+4, 1, 0); // Pre-fetch the next 4 int16, we write, lowest temporal locality.
@@ -91,7 +91,7 @@ void int16_to_float(const int16_t *input, float *output, const size_t n)
         in = vld1_s16(input); // Load next 4 16-bits fixed points integers
         __builtin_prefetch(input+4, 0, 0); // Pre-fetch the next 4 ints, we read, lowest temporal locality.
         tmp = vmovl_s16(in); // Widen 16 bits to 32 bits integers
-        out = vcvtq_n_f32_s32(tmp, 16);// Convert 16 bits fixed point signed integer to float (scaled down by 1/__INT16_MAX__)
+        out = vcvtq_n_f32_s32(tmp, 15);// Convert 16 bits fixed point signed integer to float (scaled down by 1/__INT16_MAX__)
         vst1q_f32(output, out); // Store the converted number in output array.
         __builtin_prefetch(output+4, 1, 0); // Pre-fetch the next 4 int16, we write, lowest temporal locality.
         input += 4; // Increment input pointer

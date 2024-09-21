@@ -143,7 +143,7 @@ class sx1255_drv
     static constexpr unsigned char iism_rx_disable = 0;
     static constexpr unsigned char iism_tx_disable = 0;
     static constexpr unsigned char iism_mode = 0x02; // Mode B2
-    static constexpr unsigned char iism_clk_div = 0x4; // XTAL/CLK_OUT div = 12
+    static constexpr unsigned char iism_clk_div = 0x3; // XTAL/CLK_OUT div (0x04 = 12, 0x03 = 8)
 
     // interpolation/decimation factor = 8*3^1*2^4 = 384
     static constexpr unsigned char int_dec_mantisse = 0;

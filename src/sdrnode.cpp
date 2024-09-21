@@ -20,16 +20,6 @@
  *
  * Uses ARM Neon extension if available
  */
-void float_to_int16(const float *input, int16_t *output, const size_t n);
-
-/**
- * Convert an array of n 16 bits fixed point signed integers to an array of floats
- *
- * Uses ARM Neon extension if available
- */
-void int16_to_float(const int16_t *input, float *output, const size_t n);
-
-
 void float_to_int16(const float *input, int16_t *output, const size_t n)
 {
 #ifdef __aarch64__
@@ -75,6 +65,11 @@ void float_to_int16(const float *input, int16_t *output, const size_t n)
 #endif
 }
 
+/**
+ * Convert an array of n 16 bits fixed point signed integers to an array of floats
+ *
+ * Uses ARM Neon extension if available
+ */
 void int16_to_float(const int16_t *input, float *output, const size_t n)
 {
 #ifdef __aarch64__
@@ -119,6 +114,55 @@ void int16_to_float(const int16_t *input, float *output, const size_t n)
 #endif
 }
 
+/**
+ * Convert an array of n 16 bits fixed point signed integers to an array of floats
+ *
+ * Uses ARM Neon extension if available
+ */
+void int24_to_float(const int32_t *input, float *output, const size_t n)
+{
+#ifdef __aarch64__
+    float32x4_t out;
+    int32x4_t in;
+
+    const size_t simd_iters = n/4; // How many iters we can do with simd (4 floats per iter)
+    const size_t remainder_iters = n%4; // How many iters are left if n is not a multiple of 4
+
+    // Loop over the input buffer, convert floats 4 by 4 using SIMD
+    for(size_t i = 0; i < simd_iters; i++)
+    {
+        in = vld1q_s32(input); // Load next 4 32-bits fixed points integers
+        __builtin_prefetch(input+4, 0, 0); // Pre-fetch the next 4 ints, we read, lowest temporal locality.
+        out = vcvtq_n_f32_s32(in, 23);// Convert 24 bits fixed point signed integer to float
+        vst1q_f32(output, out); // Store the converted number in output array.
+        __builtin_prefetch(output+4, 1, 0); // Pre-fetch the next 4 ints, we write, lowest temporal locality.
+        input += 4; // Increment input pointer
+        output += 4; // Increment output pointer
+    }
+
+    for(size_t i = 0; i < remainder_iters; i++)
+    {
+        // Cast to float then scale down and store
+        const int scale = 16777215;
+        *output = static_cast<float>(*input) / scale;
+        input++;
+        output++;
+    }
+#else
+    // Naïve implementation, manually convert all floats to 16 bits integers
+
+    for(size_t i = 0; i < n; i++)
+    {
+        // Cast to float then scale down and store
+        *output = static_cast<float>(*input) / __INT16_MAX__;
+        input++;
+        output++;
+    }
+
+#endif
+}
+
+
 sdrnode::sdrnode(const unsigned long rx_freq, const unsigned long tx_freq, const int ppm) : sx1255(spi_devname)
 {
     long corr = (static_cast<long>(tx_freq)*ppm)/1000000;
@@ -145,6 +189,7 @@ sdrnode::sdrnode(const unsigned long rx_freq, const unsigned long tx_freq, const
 
     sx1255.set_rx_freq(rx_frequency);
     sx1255.set_tx_freq(tx_frequency);
+    sx1255.set_lna_gain(sx1255_drv::LNA_GAIN_MAX_min36);
 
     // Open PCM device for RX
     open_pcm_rx();
@@ -230,7 +275,7 @@ int sdrnode::open_pcm_rx()
         return err;
     }
 
-    err = snd_pcm_hw_params_set_format(pcm_hdl, pcm_hw_params, SND_PCM_FORMAT_S16);
+    err = snd_pcm_hw_params_set_format(pcm_hdl, pcm_hw_params, SND_PCM_FORMAT_S24_LE);
     if (err < 0) {
         cerr << "Cannot set sample format: " << snd_strerror(err) << endl;
         pcm_hdl = nullptr;
@@ -302,7 +347,7 @@ int sdrnode::open_pcm_tx()
         return err;
     }
 
-    err = snd_pcm_hw_params_set_format(pcm_hdl, pcm_hw_params, SND_PCM_FORMAT_S16_LE);
+    err = snd_pcm_hw_params_set_format(pcm_hdl, pcm_hw_params, SND_PCM_FORMAT_S24_LE);
     if (err < 0) {
         cerr << "Cannot set sample format: " << snd_strerror(err) << endl;
         pcm_hdl = nullptr;
@@ -398,7 +443,7 @@ size_t sdrnode::receive(complex<float> *rx, size_t n)
     if(!tx_nRx)
     {
         // Check that we are in a state where we can receive data
-        int16_t *buff = new int16_t[n*2];
+        int32_t *buff = new int32_t[n*2];
 
         if(buff == nullptr)
             return 0;
@@ -414,7 +459,7 @@ size_t sdrnode::receive(complex<float> *rx, size_t n)
         }
         else if(read > 0)
         {
-            int16_to_float(buff, reinterpret_cast<float*>(rx), (size_t)read*2);
+            int24_to_float(buff, reinterpret_cast<float*>(rx), (size_t)read*2);
             delete[](buff);
             return read;
         }

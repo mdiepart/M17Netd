@@ -125,22 +125,17 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
                 noise /= (512-50);
 
                 // Check if there is more energy in the channel than elsewhere in the spectrum
-                if(chan >= 10*noise)
+                if( (chan >= 6*noise) && !channel_bsy )
                 {
                     // Channel is busy
-                    if(!channel_bsy)
-                    {
-                        cout << "Channel now busy" << endl;
-                    }
+                    cout << "Channel now busy" << endl;
                     channel_bsy = true;
+
                 }
-                else
+                else if( (chan < 6*noise) && channel_bsy)
                 {
                     // Channel is free
-                    if(channel_bsy)
-                    {
-                        cout << "Channel now free" << endl;
-                    }
+                    cout << "Channel now free" << endl;
                     channel_bsy = false;
                 }
 

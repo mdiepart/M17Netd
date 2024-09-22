@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <cstring>
+#include <cmath>
 
 #include <errno.h>
 #include <fcntl.h>
@@ -18,17 +19,21 @@
 /**
  * Convert an array of n float to an array of n 16 bits signed integers
  *
- * Uses ARM Neon extension if available
+ * @param input pointer to input float array
+ * @param output pointer to output 16 bits integer array
+ * @param len number of elements in the input and output arrays
+ *
+ * @remark Uses ARM Neon extension if available
  */
-void float_to_int16(const float *input, int16_t *output, const size_t n)
+void float_to_int16(const float *input, int16_t *output, const size_t len)
 {
 #ifdef __aarch64__
     int16x4_t out;
     int32x4_t tmp;
     float32x4_t in;
 
-    const size_t simd_iters = n/4; // How many iters we can do with simd (4 floats per iter)
-    const size_t remainder_iters = n%4; // How many iters are left if n is not a multiple of 4
+    const size_t simd_iters = len/4; // How many iters we can do with simd (4 floats per iter)
+    const size_t remainder_iters = len%4; // How many iters are left if n is not a multiple of 4
 
     // Loop over the input buffer, convert floats 4 by 4 using SIMD
     for(size_t i = 0; i < simd_iters; i++)
@@ -54,7 +59,7 @@ void float_to_int16(const float *input, int16_t *output, const size_t n)
 #else
     // Naïve implementation, manually convert all floats to 16 bits integers
 
-    for(size_t i = 0; i < n; i++)
+    for(size_t i = 0; i < len; i++)
     {
         // Scale to 16 bits, cast and store
         *output = static_cast<int16_t>((*input) * __INT16_MAX__);
@@ -66,19 +71,78 @@ void float_to_int16(const float *input, int16_t *output, const size_t n)
 }
 
 /**
+ * Convert an array of n float to an array of n 24 bits signed integers (stored in 32 bits signed integers)
+ *
+ * @tparam n number of bits to use for the scale factor (2**n)
+ * @param input pointer to input float array
+ * @param output pointer to output 32 bits integers array (24 bits numbers stored as 32 bits)
+ * @param len number of elements in the input and output arrays
+ *
+ * @remark Uses ARM Neon extension if available
+ */
+template <size_t n>
+void float_to_int24(const float *input, int32_t *output, const size_t len)
+{
+    constexpr size_t coeff = (1 << n);
+#ifdef __aarch64__
+    int32x4_t out;
+    float32x4_t in;
+
+    const size_t simd_iters = len/4; // How many iters we can do with simd (4 floats per iter)
+    const size_t remainder_iters = len%4; // How many iters are left if n is not a multiple of 4
+
+    // Loop over the input buffer, convert floats 4 by 4 using SIMD
+    for(size_t i = 0; i < simd_iters; i++)
+    {
+        in = vld1q_f32(input); // Load next 4 floats
+        __builtin_prefetch(input+4, 0, 0); // Pre-fetch the next 4 floats, we read, lowest temporal locality.
+        out = vcvtq_n_s32_f32(in, n); // Convert float to 24 bits fixed point (stored in 32 bits int).
+        vst1q_s32(output, out); // Store the converted number in output array.
+        __builtin_prefetch(output+4, 1, 0); // Pre-fetch the next 4 int16, we write, lowest temporal locality.
+        input += 4; // Increment input pointer
+        output += 4; // Increment output pointer
+    }
+
+    for(size_t i = 0; i < remainder_iters; i++)
+    {
+        // Scale to 16 bits, cast and store
+        *output = static_cast<int16_t>((*input) * coeff);
+        input++;
+        output++;
+
+    }
+#else
+    // Naïve implementation, manually convert all floats to 24 bits integers
+
+    for(size_t i = 0; i < len; i++)
+    {
+        // Scale to 16 bits, cast and store
+        *output = static_cast<int32_t>((*input) * coeff);
+        input++;
+        output++;
+    }
+
+#endif
+}
+
+/**
  * Convert an array of n 16 bits fixed point signed integers to an array of floats
  *
- * Uses ARM Neon extension if available
+ * @param input pointer to input 16 bits integers array
+ * @param output pointer to output float array
+ * @param len number of elements in input and output arrays
+ *
+ * @remark Uses ARM Neon extension if available
  */
-void int16_to_float(const int16_t *input, float *output, const size_t n)
+void int16_to_float(const int16_t *input, float *output, const size_t len)
 {
 #ifdef __aarch64__
     float32x4_t out;
     int32x4_t tmp;
     int16x4_t in;
 
-    const size_t simd_iters = n/4; // How many iters we can do with simd (4 floats per iter)
-    const size_t remainder_iters = n%4; // How many iters are left if n is not a multiple of 4
+    const size_t simd_iters = len/4; // How many iters we can do with simd (4 floats per iter)
+    const size_t remainder_iters = len%4; // How many iters are left if n is not a multiple of 4
 
     // Loop over the input buffer, convert floats 4 by 4 using SIMD
     for(size_t i = 0; i < simd_iters; i++)
@@ -103,7 +167,7 @@ void int16_to_float(const int16_t *input, float *output, const size_t n)
 #else
     // Naïve implementation, manually convert all floats to 16 bits integers
 
-    for(size_t i = 0; i < n; i++)
+    for(size_t i = 0; i < len; i++)
     {
         // Cast to float then scale down and store
         *output = static_cast<float>(*input) / __INT16_MAX__;
@@ -117,23 +181,31 @@ void int16_to_float(const int16_t *input, float *output, const size_t n)
 /**
  * Convert an array of n 16 bits fixed point signed integers to an array of floats
  *
- * Uses ARM Neon extension if available
+ * @tparam n number of bits to use for the scale factor (2**n)
+ * @param input pointer to input 32 bits integer array (24 bits numbers stored as 32 bits)
+ * @param output pointer to output float array
+ * @param len number of elements in input and output arrays
+ *
+ * @remark Uses ARM Neon extension if available
  */
-void int24_to_float(const int32_t *input, float *output, const size_t n)
+template <size_t n>
+void int24_to_float(const int32_t *input, float *output, const size_t len)
 {
+    constexpr size_t coeff = (1 << n);
 #ifdef __aarch64__
     float32x4_t out;
     int32x4_t in;
 
-    const size_t simd_iters = n/4; // How many iters we can do with simd (4 floats per iter)
-    const size_t remainder_iters = n%4; // How many iters are left if n is not a multiple of 4
+    const size_t simd_iters = len/4; // How many iters we can do with simd (4 floats per iter)
+    const size_t remainder_iters = len%4; // How many iters are left if n is not a multiple of 4
 
     // Loop over the input buffer, convert floats 4 by 4 using SIMD
     for(size_t i = 0; i < simd_iters; i++)
     {
         in = vld1q_s32(input); // Load next 4 32-bits fixed points integers
         __builtin_prefetch(input+4, 0, 0); // Pre-fetch the next 4 ints, we read, lowest temporal locality.
-        out = vcvtq_n_f32_s32(in, 23);// Convert 24 bits fixed point signed integer to float
+        in = reinterpret_cast<int32x4_t>(vshlq_n_u32(reinterpret_cast<uint32x4_t>(in), 8));
+        out = vcvtq_n_f32_s32(in, n);// Convert 24 bits fixed point signed integer to float
         vst1q_f32(output, out); // Store the converted number in output array.
         __builtin_prefetch(output+4, 1, 0); // Pre-fetch the next 4 ints, we write, lowest temporal locality.
         input += 4; // Increment input pointer
@@ -143,25 +215,23 @@ void int24_to_float(const int32_t *input, float *output, const size_t n)
     for(size_t i = 0; i < remainder_iters; i++)
     {
         // Cast to float then scale down and store
-        const int scale = 16777215;
-        *output = static_cast<float>(*input) / scale;
+        *output = static_cast<float>(*input) / coeff;
         input++;
         output++;
     }
 #else
-    // Naïve implementation, manually convert all floats to 16 bits integers
+    // Naïve implementation, manually convert all 24 bits integers to floats
 
     for(size_t i = 0; i < n; i++)
     {
         // Cast to float then scale down and store
-        *output = static_cast<float>(*input) / __INT16_MAX__;
+        *output = static_cast<float>(*input) / coeff;
         input++;
         output++;
     }
 
 #endif
 }
-
 
 sdrnode::sdrnode(const unsigned long rx_freq, const unsigned long tx_freq, const int ppm) : sx1255(spi_devname)
 {
@@ -459,7 +529,7 @@ size_t sdrnode::receive(complex<float> *rx, size_t n)
         }
         else if(read > 0)
         {
-            int24_to_float(buff, reinterpret_cast<float*>(rx), (size_t)read*2);
+            int24_to_float<24>(buff, reinterpret_cast<float*>(rx), (size_t)read*2);
             delete[](buff);
             return read;
         }
@@ -472,12 +542,12 @@ size_t sdrnode::transmit(const complex<float> *tx, size_t n)
 {
     if(tx_nRx)
     {
-        int16_t *buff = new int16_t[n*2];
+        int32_t *buff = new int32_t[n*2];
 
         if(buff == nullptr)
             return 0;
 
-        float_to_int16(reinterpret_cast<const float*>(tx), buff, n*2);
+        float_to_int24<23>(reinterpret_cast<const float*>(tx), buff, n*2);
         snd_pcm_sframes_t written = snd_pcm_writei(pcm_hdl, buff, n);
 
         if(written < 0)

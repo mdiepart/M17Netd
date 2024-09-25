@@ -58,7 +58,6 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
 
     // Create and initialize the radio
     sdrnode radio = sdrnode(radio_cfg.rx_freq, radio_cfg.tx_freq, radio_cfg.ppm);
-    radio.switch_rx();
 
     bool channel_bsy = true;
     while(running)
@@ -66,6 +65,7 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
         // While the channel is busy or while there is nothing to send
         // We keep receiving and (attempting to) demodulate
         shared_ptr<m17rx> rx_packet = make_shared<m17rx>();
+        radio.switch_rx();
         while(running && (to_radio.isEmpty() || channel_bsy))
         {
             int read = radio.receive(rx_samples, block_size);
@@ -142,6 +142,8 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
             }
         }
 
+        if(running)
+            radio.switch_tx();
         while(running && (!to_radio.isEmpty()))
         {
             int ret = to_radio.consume(packet);
@@ -157,7 +159,9 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
             }
             while(running && (packet->baseband_samples_left() > 0));
         }
+        usleep(5000);
     }
+    
 
     fftwf_destroy_plan(fft_plan);
     fftwf_free(rx_samples);

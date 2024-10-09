@@ -113,6 +113,13 @@ class sx1255_drv
     int switch_tx();
 
     /**
+     * Dumps the content of the SX1255 registers to an output stream.
+     *
+     * @param strout output stream to dump the registers to
+     */
+    void dump_regs(ostream &strout);
+
+    /**
      * Querries the version number of the device.
      *
      * @return the version number of the device

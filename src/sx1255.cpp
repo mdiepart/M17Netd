@@ -67,7 +67,7 @@ int sx1255_drv::set_tx_freq(unsigned long freq)
     const uint8_t val2 = static_cast<uint8_t>(val >> 8);
     const uint8_t val3 = static_cast<uint8_t>(val >> 16);
 
-    array<uint8_t, 6> buffer = {
+    array<uint8_t, 4> buffer = {
         FRFH_TX_ADDR | REG_WRITE,
         val3,
         val2,
@@ -95,7 +95,7 @@ int sx1255_drv::set_rx_freq(unsigned long freq)
     const uint8_t val2 = static_cast<uint8_t>(val >> 8);
     const uint8_t val3 = static_cast<uint8_t>(val >> 16);
 
-    array<uint8_t, 6> buffer = {
+    array<uint8_t, 4> buffer = {
         FRFH_RX_ADDR | REG_WRITE,
         val3,
         val2,
@@ -177,7 +177,7 @@ int sx1255_drv::set_tx_mix_gain(unsigned char gain)
     if(gain > 0x0F)
         return -1;
 
-    array<uint8_t, 2> buffer = {RXFE1_ADDR, 0x00};
+    array<uint8_t, 2> buffer = {TXFE1_ADDR, 0x00};
 
     int ret = spi.send_recv(buffer.data(), buffer.size());
     if(ret < 0)
@@ -233,6 +233,9 @@ int sx1255_drv::switch_tx()
 
     int ret = spi.send(buffer.data(), buffer.size());
 
+    if(ret < 0)
+        return -1;
+
     buffer[0] = STAT_ADDR;
     bool tx_pll_locked = false;
     int iter = 20; // This number was just deemed reasonable, not tested
@@ -248,4 +251,24 @@ int sx1255_drv::switch_tx()
     }while(!tx_pll_locked && iter > 0);
 
     return tx_pll_locked?0:-1; // In case iter is -1 but the pll did lock
+}
+
+void sx1255_drv::dump_regs(ostream &strout)
+{
+    // Collect all registers
+    constexpr array<uint8_t, 19> regs = {MODE_ADDR, FRFH_RX_ADDR, FRFM_RX_ADDR, FRFL_RX_ADDR,
+                                         FRFH_TX_ADDR, FRFM_TX_ADDR, FRFL_TX_ADDR, VERSION_ADDR,
+                                         TXFE1_ADDR, TXFE2_ADDR, TXFE3_ADDR, TXFE4_ADDR,
+                                         RXFE1_ADDR, RXFE2_ADDR, RXFE3_ADDR,
+                                         CK_SEL_ADDR, STAT_ADDR, IISM_ADDR, DIG_BRIDGE_ADDR};
+
+    array<uint8_t, 2> buffer;
+    strout << "SX1255 internal registers: {\n\t" << hex;
+    for(const auto &reg: regs)
+    {
+        buffer[0] = reg;
+        spi.send_recv(buffer.data(), 2);
+        strout << "{0x" << static_cast<uint16_t>(reg) << ": 0x" << static_cast<uint16_t>(buffer[1]) << "},\n\t";
+    }
+    strout << dec << "}" << endl;
 }

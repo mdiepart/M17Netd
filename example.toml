@@ -11,7 +11,7 @@ MTU=822
 [radio]
 tx_frequency=433475000
 rx_frequency=433475000
-k_mod=3.75
+k_mod=0.0375
 ppm=-21
 
 [[peers]]

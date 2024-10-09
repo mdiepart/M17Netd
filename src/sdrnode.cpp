@@ -492,11 +492,16 @@ int sdrnode::switch_tx()
 {
     // Close pcm device and open it in tx
     close_pcm();
-    int ret = open_pcm_tx();
-    if(ret < 0)
-        return -1;
 
     prepare_tx(); // Configure GPIOs
+
+    int ret = open_pcm_tx();
+    if(ret < 0)
+    {
+        prepare_rx();
+        return -1;
+    }
+
 
     ret = sx1255.switch_tx(); // Switch radio to RX mode
     if(ret < 0)
@@ -512,11 +517,10 @@ size_t sdrnode::receive(complex<float> *rx, size_t n)
     // TODO use snd_pcm_mmap_readi to avoid an unnecessary malloc and copy
     if(!tx_nRx)
     {
-        // Check that we are in a state where we can receive data
         int32_t *buff = new int32_t[n*2];
-
         if(buff == nullptr)
             return 0;
+
         snd_pcm_sframes_t read = snd_pcm_readi(pcm_hdl, buff, n);
 
         if(read < 0)
@@ -538,7 +542,7 @@ size_t sdrnode::receive(complex<float> *rx, size_t n)
     return 0;
 }
 
-size_t sdrnode::transmit(const complex<float> *tx, size_t n)
+int sdrnode::transmit(const complex<float> *tx, size_t n)
 {
     if(tx_nRx)
     {
@@ -548,14 +552,25 @@ size_t sdrnode::transmit(const complex<float> *tx, size_t n)
             return 0;
 
         float_to_int24<23>(reinterpret_cast<const float*>(tx), buff, n*2);
-        snd_pcm_sframes_t written = snd_pcm_writei(pcm_hdl, buff, n);
 
-        if(written < 0)
-            written = snd_pcm_recover(pcm_hdl, written, 0);
+        snd_pcm_sframes_t written = 0;
+        while(n > 0)
+        {
+            written = snd_pcm_writei(pcm_hdl, buff, n);
+            if(written > 0)
+                n -= written;
+            else if(written < 0)
+            {
+                written = snd_pcm_recover(pcm_hdl, written, 0);
+                if(written < 0)
+                    break;
+            }
+
+        }
 
         delete[](buff);
 
-        return (written<=0)?0:written;
+        return (written < 0)?-1:0;
     }
 
     return 0;

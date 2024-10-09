@@ -77,7 +77,6 @@ class sdrnode
         if( usleep(10000) < 0)
             cerr << "usleep was interrupted while preparing to TX." << endl;
 
-        //gpio_set_level( gpio_PMAX_BUFA_enable, 1 ); // ??
         gpio_set_level( gpio_PA_enable, 1 );
         gpio_set_level( gpio_bias_enable, 1 );
     }
@@ -122,22 +121,22 @@ class sdrnode
      * sample containing one complex float.
      *
      * @param rx buffer containing n complex floats
-     * @param n number of I/Q samples to send. One sample is composed of 2 floats
+     * @param n number of I/Q samples to send. One sample is composed of 1 complex float
      *
      * @return the number of samples read
      */
     size_t receive(complex<float> *rx, const size_t n);
 
     /**
-     * Writes at most n samples to the radio
+     * Writes n samples to the radio
      * This operation will write a number n of samples. Each sample containing
      * one complex float.
      *
      * @param tx buffer containing n complex floats
-     * @param n number of I/Q samples to send. One sample is composed of 2 floats
+     * @param n number of I/Q samples to send. One sample is composed of 1 complex float
      *
-     * @return the number of samples written
+     * @return 0 on success, -1 on error
      */
-    size_t transmit(const complex<float> *tx, const size_t n);
+    int transmit(const complex<float> *tx, const size_t n);
 
 };

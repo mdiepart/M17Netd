@@ -66,6 +66,7 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
         // We keep receiving and (attempting to) demodulate
         shared_ptr<m17rx> rx_packet = make_shared<m17rx>();
         radio.switch_rx();
+
         while(running && (to_radio.isEmpty() || channel_bsy))
         {
             int read = radio.receive(rx_samples, block_size);
@@ -144,6 +145,7 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
 
         if(running)
             radio.switch_tx();
+
         while(running && (!to_radio.isEmpty()))
         {
             int ret = to_radio.consume(packet);

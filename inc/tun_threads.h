@@ -12,14 +12,9 @@
 
 using namespace std;
 
-class tun_thread_read {
+class tun_thread {
     public:
     void operator()(atomic_bool &running, const config &cfg,
-                    ConsumerProducerQueue<shared_ptr<vector<uint8_t>>> &from_net);
-};
-
-class tun_thread_write {
-    public:
-    void operator()(atomic_bool &running, const config &cfg,
+                    ConsumerProducerQueue<shared_ptr<vector<uint8_t>>> &from_net,
                     ConsumerProducerQueue<shared_ptr<m17rx>> &to_net);
 };

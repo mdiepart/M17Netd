@@ -6,24 +6,81 @@
 
 #include "config.h"
 
-class TunDevice {
+class tun_device {
 
     public:
-    TunDevice(const std::string_view &name);
-    ~TunDevice();
+    tun_device(const std::string_view &name);
+    ~tun_device();
 
-    std::shared_ptr<std::vector<uint8_t>> getPacket(std::atomic<bool> &running);
-    int sendPacket(const std::vector<uint8_t> &pkt);
-    void setIPV4(std::string_view ip);
-    void setUpDown(bool up);
-    void setMTU(int mtu);
-    int addRoutesForPeer(const peer_t &peer);
-    std::string getName() const;
+    /**
+     * Reads a packet from the TUN interface
+     *
+     * @return A shared pointer to a uint8_t vector containing the raw IP packet.
+     */
+    std::shared_ptr<std::vector<uint8_t>> get_packet();
+
+    /**
+     * Sends a packet to the TUN interface
+     *
+     * @param pkt a uint8_t pointer containing the raw IP packet to send
+     *
+     * @return 0 if successful, -1 in case of error
+     */
+    int send_packet(const std::vector<uint8_t> &pkt);
+
+    /**
+     * Sets the local IP V4 of the tun interface
+     *
+     * @param ip a string containing the ip address (in the form aaa.bbb.ccc.ddd)
+     */
+    void set_IPV4(std::string_view ip);
+
+    /**
+     * Sets the interface up or down
+     *
+     * @param up true to set the interface up, false to set it down
+     */
+    void set_up_down(bool up);
+
+    /**
+     * Sets the MTU of the interface
+     *
+     * @param mtu the MTU in bytes
+     */
+    void set_MTU(int mtu);
+
+    /**
+     * Add the routes contained in a peer
+     *
+     * @param peer a peer containing one or several associated routes
+     */
+    int add_routes_to_peer(const peer_t &peer);
+
+    /**
+     * Gets the name of the interface
+     *
+     * @return A string containing the interface name
+     */
+    std::string get_if_name() const;
+
+    /**
+     * Gets the file descriptor of the TUN interface
+     *
+     * @return the file descriptor of the TUN interface
+     */
+    int get_tun_fd() const;
+
+    /**
+     * Gets the file descriptior of the socket opened on the TUN interface
+     *
+     * @return the file descriptor of the socket opened on the TUN interface
+     */
+    int get_sock_fd() const;
 
     private:
 
     int tun_fd;
     int sock_fd;
-    std::string ifName;
+    std::string if_name;
     int mtu;
 };

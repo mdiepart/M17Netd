@@ -28,15 +28,15 @@
 
 #define ifreq_offsetof(x)  offsetof(struct ifreq, x)
 
-TunDevice::TunDevice(const std::string_view &name)
+tun_device::tun_device(const std::string_view &name)
 {
     const char *dev = name.data();
 
     struct ifreq ifr;
     int err;
 
-    // Open the clone device
-    if( (tun_fd = open("/dev/net/tun", O_RDWR)) < 0 )
+    // Open the clone device in non-block mode
+    if( (tun_fd = open("/dev/net/tun", O_RDWR | O_NONBLOCK)) < 0 )
     {
         std::cerr << "Unable to open clone device for tuntap interface: error " << errno << std::endl;
         return;
@@ -50,7 +50,7 @@ TunDevice::TunDevice(const std::string_view &name)
      *
      *        IFF_NO_PI - Do not provide packet information
      */
-    ifr.ifr_flags = IFF_TUN | IFF_NO_PI | IFF_MULTI_QUEUE;
+    ifr.ifr_flags = IFF_TUN | IFF_NO_PI;
 
     // if a name was given, copy it in the init structure
     if( *dev )
@@ -68,7 +68,7 @@ TunDevice::TunDevice(const std::string_view &name)
     }
 
     // Store interface name
-    ifName = std::string(ifr.ifr_name);
+    if_name = std::string(ifr.ifr_name);
 
     // Open socket
     sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -78,54 +78,28 @@ TunDevice::TunDevice(const std::string_view &name)
         close(tun_fd);
     }
 
-    std::cout << "Created tun interface with fd = " << tun_fd << " and name " << ifName << "\r\n";
+    std::cout << "Created tun interface with fd = " << tun_fd << " and name " << if_name << "\r\n";
     std::cout << "Created a socket with fd = " << sock_fd << std::endl;
     return;
 }
 
-TunDevice::~TunDevice()
+tun_device::~tun_device()
 {
     close(tun_fd);
     close(sock_fd);
 }
 
-std::shared_ptr<std::vector<uint8_t>> TunDevice::getPacket(std::atomic<bool> &running)
+std::shared_ptr<std::vector<uint8_t>> tun_device::get_packet()
 {
     uint8_t storage[mtu];
 
-    struct timespec read_timeout = {.tv_sec = 1, .tv_nsec = 0}; // 1 sec timeout
-    bool loop = true;
-    std::size_t n = 0;
-    fd_set read_fdset;
-
-    while(loop && running)
-    {
-        FD_ZERO(&read_fdset);
-        FD_SET(tun_fd, &read_fdset);
-
-        int ret = pselect(tun_fd+1, &read_fdset, nullptr, nullptr, &read_timeout, nullptr);
-        if(ret < 0)
-        {
-            std::cout << "Tun thread: pselect error (" << strerror(errno) << ")." << std::endl;
-            loop = false;
-        }
-        else if(ret == 0)
-        {
-            // Pselect timed out, retry
-            continue;
-        }
-        else
-        {
-            // tun_fd is the only filedescriptor monitored so if we arrive
-            // here it will always be set, no need to check.
-            n = read(tun_fd, storage, mtu);
-            loop = false;
-        }
-    }
+    // fd is opened in non-block. If there is no packet to be read, -1 will be returned
+    // and errno will be EAGAIN
+    int n = pread(tun_fd, storage, mtu, 0);
 
     if(n <= 0)
     {
-        return std::shared_ptr<std::vector<uint8_t>>(new std::vector<uint8_t>());
+        return nullptr;
     }
     else
     {
@@ -133,9 +107,10 @@ std::shared_ptr<std::vector<uint8_t>> TunDevice::getPacket(std::atomic<bool> &ru
     }
 }
 
-int TunDevice::sendPacket(const std::vector<uint8_t> &pkt)
+int tun_device::send_packet(const std::vector<uint8_t> &pkt)
 {
-    int written = write(tun_fd, pkt.data(), pkt.size());
+    int written = pwrite(tun_fd, pkt.data(), pkt.size(), 0);
+
     if(written < 0)
         return -1;
     else if(static_cast<size_t>(written) != pkt.size())
@@ -144,14 +119,14 @@ int TunDevice::sendPacket(const std::vector<uint8_t> &pkt)
     return 0;
 }
 
-void TunDevice::setIPV4(std::string_view ip)
+void tun_device::set_IPV4(std::string_view ip)
 {
     int err;
 
     // Init ifr struct
     struct ifreq ifr;
     memset(&ifr, 0, sizeof(ifr));
-    strncpy(ifr.ifr_name, ifName.c_str(), IFNAMSIZ);
+    strncpy(ifr.ifr_name, if_name.c_str(), IFNAMSIZ);
 
     // Convert IP from string with dot notation to binary in network order
     struct sockaddr_in sai;
@@ -169,14 +144,14 @@ void TunDevice::setIPV4(std::string_view ip)
         std::cout << "setIPV4: ioctl failed, errno=" << errno << std::endl;
 }
 
-void TunDevice::setUpDown(bool up)
+void tun_device::set_up_down(bool up)
 {
     int err;
 
     // init ifr struct
     struct ifreq ifr;
     memset(&ifr, 0, sizeof(ifr));
-    strncpy(ifr.ifr_name, ifName.c_str(), IFNAMSIZ);
+    strncpy(ifr.ifr_name, if_name.c_str(), IFNAMSIZ);
 
     // Get flags
     ioctl(sock_fd, SIOCGIFFLAGS, (void *)&ifr);
@@ -201,15 +176,15 @@ void TunDevice::setUpDown(bool up)
 
     if(err < 0)
     {
-        std::cout << "Could not set interface " << ifName << " Up/Down: errno=" << errno << std::endl;
+        std::cout << "Could not set interface " << if_name << " Up/Down: errno=" << errno << std::endl;
     }
     else
     {
-        std::cout << "Set interface interface " << ifName << (up?" Up":" Down") << std::endl;
+        std::cout << "Set interface interface " << if_name << (up?" Up":" Down") << std::endl;
     }
 }
 
-void TunDevice::setMTU(int size)
+void tun_device::set_MTU(int size)
 {
     int err;
     mtu = size;
@@ -217,7 +192,7 @@ void TunDevice::setMTU(int size)
     // init ifr struct
     struct ifreq ifr;
     memset(&ifr, 0, sizeof(ifr));
-    strncpy(ifr.ifr_name, ifName.c_str(), IFNAMSIZ);
+    strncpy(ifr.ifr_name, if_name.c_str(), IFNAMSIZ);
     ifr.ifr_mtu = mtu;
 
     // Apply new MTU
@@ -225,11 +200,11 @@ void TunDevice::setMTU(int size)
 
     if(err < 0)
     {
-        std::cout << "Could not set MTU of interface " << ifName << ": errno=" << errno << std::endl;
+        std::cout << "Could not set MTU of interface " << if_name << ": errno=" << errno << std::endl;
     }
 }
 
-int TunDevice::addRoutesForPeer(const peer_t &peer)
+int tun_device::add_routes_to_peer(const peer_t &peer)
 {
     struct rtentry rt;
     struct sockaddr_in dst;
@@ -247,11 +222,9 @@ int TunDevice::addRoutesForPeer(const peer_t &peer)
     netmask.sin_family = AF_INET;
 
     // Device name
-    char if_name[IFNAMSIZ+1] = {0};
-    strncpy(if_name, ifName.c_str(), IFNAMSIZ);
-    rt.rt_dev = if_name;
-
-    std::cout << "Adding routes for peer " << peer.callsign << std::endl;
+    char if_name_cstr[IFNAMSIZ+1] = {0};
+    strncpy(if_name_cstr, if_name.c_str(), IFNAMSIZ);
+    rt.rt_dev = if_name_cstr;
 
     // Add route to peer first (as host route)
     gw.sin_addr.s_addr = inet_addr(peer.ip.data());
@@ -262,12 +235,12 @@ int TunDevice::addRoutesForPeer(const peer_t &peer)
     ret = ioctl(sock_fd, SIOCADDRT, &rt);
     if(ret < 0)
     {
-        std::cerr << "Unable to add route to peer as host. ioctl error (" << strerror(errno) << ")." << std::endl;
+        std::cerr << "Unable to add route to peer " << peer.callsign << " as host. ioctl error (" << strerror(errno) << ")." << std::endl;
         return EXIT_FAILURE;
     }
     else
     {
-        std::cout << "Added route to peer as host." << std::endl;
+        std::cout << "Added route to peer " << peer.callsign << " as host." << std::endl;
     }
 
     rt.rt_flags &= ~(RTF_HOST);
@@ -314,7 +287,7 @@ int TunDevice::addRoutesForPeer(const peer_t &peer)
         dst.sin_family = AF_INET;
         memcpy(&rt.rt_dst, &dst, sizeof(struct sockaddr));
 
-        std::cout << "Adding route " << r << " to " << ifName << " routes." << std::endl;
+        std::cout << "Adding route " << r << " to " << if_name << " routes." << std::endl;
 
         int ret = ioctl(sock_fd, SIOCADDRT, &rt);
         if(ret < 0)
@@ -328,7 +301,18 @@ int TunDevice::addRoutesForPeer(const peer_t &peer)
     return EXIT_SUCCESS;
 }
 
-std::string TunDevice::getName() const
+std::string tun_device::get_if_name() const
 {
-    return ifName;
+    return if_name;
 }
+
+int tun_device::get_tun_fd() const
+{
+    return tun_fd;
+}
+
+int tun_device::get_sock_fd() const
+{
+    return sock_fd;
+}
+

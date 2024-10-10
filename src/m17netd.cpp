@@ -73,16 +73,13 @@ int main(int argc, char *argv[])
     sigint_handler.sa_flags = 0;
     sigaction(SIGINT, &sigint_handler, 0);
 
-    std::thread tun_read = std::thread(tun_thread_read(), std::ref(running), std::ref(cfg), std::ref(from_net));
-    std::thread tun_write = std::thread(tun_thread_write(), std::ref(running), std::ref(cfg), std::ref(from_radio));
+    std::thread tun_read = std::thread(tun_thread(), std::ref(running), std::ref(cfg), std::ref(from_net), std::ref(from_radio));
     std::thread radio = std::thread(radio_simplex(), std::ref(running), std::ref(cfg), std::ref(to_radio), std::ref(from_radio));
     std::thread m17tx = std::thread(m17tx_thread(), std::ref(running), std::ref(cfg), std::ref(from_net), std::ref(to_radio));
 
     // Wait for threads to terminate
     tun_read.join();
     std::cout << "tun read thread stopped" << std::endl;
-    tun_write.join();
-    std::cout << "tun write thread stopped" << std::endl;
     radio.join();
     std::cout << "radio thread stopped" << std::endl;
     m17tx.join();

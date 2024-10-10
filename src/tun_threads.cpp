@@ -4,10 +4,13 @@
 #include <cstdint>
 #include <cstdbool>
 #include <memory>
+#include <chrono>
+#include <thread>
 
 #include <linux/if_tun.h>
 #include <netinet/ip.h>
 #include <unistd.h>
+#include <sys/eventfd.h>
 
 #include "tun_threads.h"
 #include "tuntap.h"
@@ -18,14 +21,29 @@
 
 using namespace std;
 
-atomic_bool tun_dev_ready = false;
-string tun_name;
+void to_net_monitor(atomic_bool &running, ConsumerProducerQueue<shared_ptr<m17rx>> &to_net, int event_fd)
+{
+    std::chrono::milliseconds timeout(1000);
+    uint64_t pwrite_val = 1;
 
-void tun_thread_read::operator()(atomic_bool &running, const config &cfg,
-                                 ConsumerProducerQueue<shared_ptr<vector<uint8_t>>> &from_net)
+    while(running)
+    {
+        if(to_net.wait_for_non_empty(timeout))
+        {
+            pwrite(event_fd, &pwrite_val, 8, 0);
+        }
+    }
+}
+
+
+
+void tun_thread::operator()(atomic_bool &running, const config &cfg,
+                                 ConsumerProducerQueue<shared_ptr<vector<uint8_t>>> &from_net,
+                                 ConsumerProducerQueue<shared_ptr<m17rx>> &to_net)
 {
     tunthread_cfg if_cfg;
     cfg.getTunConfig(if_cfg);
+    std::string_view radio_callsign = cfg.getCallsign();
 
     std::cout << "Tun thread starting. Configuration:"
     << "\n\tInterface name: " << if_cfg.name << "%d"
@@ -36,111 +54,123 @@ void tun_thread_read::operator()(atomic_bool &running, const config &cfg,
     std::string name = std::string(if_cfg.name) + "%d";
 
     // Setting-up tun device
-    TunDevice interface(name);
-
-    tun_name = interface.getName();
+    tun_device interface(name);
 
     // Set IP address
-    interface.setIPV4(if_cfg.ip);
+    interface.set_IPV4(if_cfg.ip);
 
     // Set MTU
-    interface.setMTU(if_cfg.mtu);
+    interface.set_MTU(if_cfg.mtu);
 
     // Bring interface UP
-    interface.setUpDown(true); // Up
+    interface.set_up_down(true); // Up
 
     // Process peers
     for(auto const &p : if_cfg.peers)
     {
-        interface.addRoutesForPeer(p);
+        interface.add_routes_to_peer(p);
     }
 
-    std::shared_ptr<std::vector<uint8_t>> packet;
-    tun_dev_ready = true;
+    std::shared_ptr<std::vector<uint8_t>> from_net_packet;
+    std::shared_ptr<m17rx> to_net_packet;
+
+    struct timespec read_timeout = {.tv_sec = 1, .tv_nsec = 0}; // 1 sec timeout
+    fd_set read_fdset;
+
+    int tun_fd = interface.get_tun_fd();
+    int data_avail_fd = eventfd(0, EFD_NONBLOCK);
+    int nfds = max(tun_fd, data_avail_fd) + 1;
+
+    // Start to_net monitoring thread
+    std::thread monitoring_thread = std::thread(to_net_monitor, std::ref(running), std::ref(to_net), data_avail_fd);
 
     // Thread loop
     while( running )
     {
-        packet = interface.getPacket(ref(running));
-
-        if(packet->empty())
+        // Check if we can either read from tun or if data is available
+        FD_ZERO(&read_fdset);
+        FD_SET(interface.get_tun_fd(), &read_fdset);
+        FD_SET(data_avail_fd, &read_fdset);
+        int ret = pselect(nfds, &read_fdset, nullptr, nullptr, &read_timeout, nullptr);
+        if(ret < 0)
         {
-            std::cerr << "getPacket returned an empty vector. Errno = " << errno << std::endl;
+            std::cout << "Tun thread: pselect error (" << strerror(errno) << ")." << std::endl;
+            continue;
         }
-        else{
-            struct ip *pkt = reinterpret_cast<struct ip *>(packet->data());
-
-            if(pkt->ip_v != 4)
-            {
-                std::cerr << "Received an IP packet which is not ip V4" << std::endl;
-            }else{
-                from_net.add(packet);
-            }
-        }
-    }
-}
-
-void tun_thread_write::operator()(atomic_bool &running, const config &cfg,
-                                  ConsumerProducerQueue<shared_ptr<m17rx>> &to_net)
-{
-    // Wait for tun device to be ready
-    while(!tun_dev_ready)
-    {
-        usleep(10000);
-    }
-
-    tunthread_cfg if_cfg;
-    cfg.getTunConfig(if_cfg);
-
-    // Parse toml configuration
-    std::string name = std::string(if_cfg.name) + "%d";
-
-    // Setting-up thread
-    TunDevice interface(tun_name);
-
-    std::shared_ptr<m17rx> packet;
-
-    std::string_view radio_callsign = cfg.getCallsign();
-
-    while(running)
-    {
-        if(to_net.consume(packet) != -1)
+        else if(ret == 0)
         {
-            if(!packet->is_valid())
+            // Pselect timed out, retry
+            continue;
+        }
+        else
+        {
+            if(FD_ISSET(tun_fd, &read_fdset))
             {
-                continue;
-            }
+                from_net_packet = interface.get_packet();
 
-            // check if the dst callsign matches our callsign
-            array<uint8_t, 30> lsf = packet->get_lsf();
-            lsf_t *m17_lsf = reinterpret_cast<lsf_t *>(&lsf);
-            char dst_call[10];
-
-            decode_callsign_bytes(dst_call, m17_lsf->dst);
-            if(radio_callsign == dst_call)
-            {
-                // Check if payload is intact
-                vector<uint8_t> payload = packet->get_payload();
-
-                // Check if payload is at least 1 byte + specifier + CRC (4 bytes total)
-                // Check if the specifier corresponds to IPV4
-                if(payload.size() < 4 || payload[0] != 0x04)
+                if(from_net_packet->empty())
                 {
-                    if(CRC_M17(payload.data()+1, payload.size()-1) == 0)
+                    std::cerr << "getPacket returned an empty vector. Errno = " << errno << std::endl;
+                }
+                else{
+                    struct ip *pkt = reinterpret_cast<struct ip *>(from_net_packet->data());
+
+                    if(pkt->ip_v != 4)
                     {
-                        payload.erase(payload.cbegin()); // Remove type specifier
-                        payload.erase(payload.cend() - 2, payload.cend()); // Remove CRC
-                        interface.sendPacket(payload); // Send packet
+                        std::cerr << "Received an IP packet which is not ip V4" << std::endl;
+                    }else{
+                        from_net.add(from_net_packet);
                     }
-                    else
+                }
+            }
+
+            if(FD_ISSET(data_avail_fd, &read_fdset))
+            {
+                // Data can be read from to_net queue
+                while(!to_net.isEmpty())
+                {
+                    to_net.consume(to_net_packet);
+
+                    if(!to_net_packet->is_valid())
                     {
-                        cerr << "The CRC check of the payload failed" << endl;
+                        continue;
+                    }
+
+                    // check if the dst callsign matches our callsign
+                    array<uint8_t, 30> lsf = to_net_packet->get_lsf();
+                    lsf_t *m17_lsf = reinterpret_cast<lsf_t *>(&lsf);
+                    char dst_call[10];
+
+                    decode_callsign_bytes(dst_call, m17_lsf->dst);
+                    if(radio_callsign == dst_call)
+                    {
+                        // Check if payload is intact
+                        vector<uint8_t> payload = to_net_packet->get_payload();
+
+                        // Check if payload is at least 1 byte + specifier + CRC (4 bytes total)
+                        // Check if the specifier corresponds to IPV4
+                        if(payload.size() < 4 || payload[0] != 0x04)
+                        {
+                            if(CRC_M17(payload.data()+1, payload.size()-1) == 0)
+                            {
+                                payload.erase(payload.cbegin()); // Remove type specifier
+                                payload.erase(payload.cend() - 2, payload.cend()); // Remove CRC
+                                interface.send_packet(payload); // Send packet
+                            }
+                            else
+                            {
+                                cerr << "The CRC check of the payload failed" << endl;
+                            }
+                        }
                     }
                 }
 
+                // Clear data_avail_fd eventfd
+                uint64_t tmp;
+                pread(data_avail_fd, &tmp, 8, 0);
             }
         }
-
     }
 
+    monitoring_thread.join();
 }

@@ -52,14 +52,31 @@ public:
         timeout = std::chrono::seconds(1);
     }
 
+    /**
+     * Gets the queue name
+     *
+     * @return the queue name
+     */
     std::string& name() {
         return( queueName );
     }
 
+    /**
+     * Sets the queue name
+     *
+     * @param qName the new name of the queue
+     */
     void setName( std::string qName ) {
         queueName.assign( qName );
     }
 
+    /**
+     * Adds an element to the queue
+     *
+     * @param request the element to add to the queue
+     *
+     * @return -1 if the attempt timed-out (after 1s), the new number of elements in the queue otherwise
+     */
     int add(T request)
     {
         int L = 0 ;
@@ -78,6 +95,13 @@ public:
         return(L);
     }
 
+    /**
+     * Gets an element from the queue
+     *
+     * @param request the element in which to store the result
+     *
+     * @return -1 id the attempt timed-out (after 1s), the new number of elements in the queue otherwise
+     */
     int consume(T &request)
     {
         int L = 0 ;
@@ -118,21 +142,39 @@ public:
         return ret;
     }
 
+    /**
+     * Check if the queue is full
+     *
+     * @return true if the queue is full, false otherwise
+     */
     bool isFull() const
     {
         return cpq.size() >= maxSize;
     }
 
+    /**
+     * Check if the queue is empty
+     *
+     * @return true if the queue is empty, false otherwise
+     */
     bool isEmpty() const
     {
         return cpq.size() == 0;
     }
 
+    /**
+     * Get the number of elements currently in the queue
+     *
+     * @return the number of elements in the queue
+     */
     int length() const
     {
         return cpq.size();
     }
 
+    /**
+     * Empties the queue
+     */
     void clear()
     {
         std::unique_lock<std::mutex> lock(mutex);

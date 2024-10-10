@@ -97,7 +97,6 @@ vector<peer_t> config::getPeers() const
             for(auto r = routes->cbegin(); r < routes->cend(); r++)
             {
                 p.routes.push_back(r->value_or(""));
-                cout << "added route " << p.routes.back() << " for peer " << p.callsign << endl;
             }
         }
 

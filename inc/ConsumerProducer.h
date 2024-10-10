@@ -97,6 +97,27 @@ public:
         return(L);
     }
 
+    /**
+     * Wait for the queue to contain at least one element
+     *
+     * @note This function waits for the queue to contain at least one element
+     *          but if several threads are waiting to consume from the same queue
+     *          there is no guarantee that it will still contain elements when calling consume().
+     *
+     * @param wait_max max duration to wait for before timing out
+     *
+     * @return false if timed out, true if the queue contains at least one element
+     */
+    int wait_for_non_empty(std::chrono::milliseconds wait_max)
+    {
+        std::unique_lock<std::mutex> lock(mutex);
+        auto ret = cond.wait_for(lock, wait_max, [this]() {
+            return !isEmpty();
+        });
+
+        return ret;
+    }
+
     bool isFull() const
     {
         return cpq.size() >= maxSize;

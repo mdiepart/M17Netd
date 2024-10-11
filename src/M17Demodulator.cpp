@@ -27,6 +27,7 @@
 #include <cstring>
 #include <cstdio>
 #include <m17.h>
+#include <iostream>
 
 using namespace M17;
 
@@ -172,7 +173,6 @@ void M17Demodulator::init()
      * placement new.
      */
 
-    baseband_buffer = std::make_unique< int16_t[] >(2 * SAMPLE_BUF_SIZE);
     demodFrame      = std::make_unique< m17frame_t >();
     readyFrame      = std::make_unique< m17frame_t >();
 
@@ -186,12 +186,11 @@ void M17Demodulator::init()
     trigCnt    = 0;
     pthread_create(&logThread, NULL, logFunc, NULL);
     #endif
+    cout << "M17 Demodulator initialized" << endl;
 }
 
 void M17Demodulator::terminate()
 {
-    // Delete the buffers and deallocate memory.
-    baseband_buffer.reset();
     demodFrame.reset();
     readyFrame.reset();
 
@@ -207,12 +206,12 @@ const M17::m17frame_t& M17Demodulator::getFrame()
     return *readyFrame;
 }
 
-bool M17Demodulator::isLocked()
+bool M17Demodulator::isLocked() const
 {
     return locked;
 }
 
-bool M17Demodulator::update(float *samples, size_t N)
+bool M17Demodulator::update(float *samples, const size_t N)
 {
     if(samples != nullptr)
     {
@@ -226,7 +225,7 @@ bool M17Demodulator::update(float *samples, size_t N)
             float   elem;
             firfilt_rrrf_push(rrcos_filt, samples[i]);
             firfilt_rrrf_execute(rrcos_filt, &elem);
-            int16_t sample = static_cast<int16_t>(elem*10000); // Scale up
+            int16_t sample = static_cast<int16_t>(elem*16384); // Scale up
 
             // Update correlator and sample filter for correlation thresholds
             correlator.sample(sample);
@@ -237,14 +236,17 @@ bool M17Demodulator::update(float *samples, size_t N)
                 case DemodState::INIT:
                 {
                     initCount -= 1;
-                    if(initCount == 0)
+                    if(initCount == 0){
                         demodState = DemodState::UNLOCKED;
+                        cout << "M17 Demodulator: Unlocked" << endl;
+                    }
+
                 }
                     break;
 
                 case DemodState::UNLOCKED:
                 {
-                    int32_t syncThresh = static_cast< int32_t >(corrThreshold * 33.0f);
+                    int32_t syncThresh = static_cast< int32_t >(corrThreshold * 66.0f);
                     int8_t  packetSyncStatus = packetSync.update(correlator, syncThresh, -syncThresh);
                     int8_t  lsfSyncStatus = lsfSync.update(correlator, syncThresh, -syncThresh);
 
@@ -254,11 +256,13 @@ bool M17Demodulator::update(float *samples, size_t N)
                     {
                         demodState = DemodState::SYNCED;
                         lastSyncWord = SyncWord::PACKET;
+                        cout << "M17 Demodulator: Received packet sync: Unlock -> Synced" << endl;
                     }
                     else if(lsfSyncStatus == 1)
                     {
                         demodState = DemodState::SYNCED;
                         lastSyncWord = SyncWord::LSF;
+                        cout << "M17 Demodulator: Received LSF sync: Unlock -> Synced" << endl;
                     }
                 }
                     break;
@@ -296,10 +300,12 @@ bool M17Demodulator::update(float *samples, size_t N)
                     {
                         locked     = true;
                         demodState = DemodState::LOCKED;
+                        cout << "M17 Demodulator: Received packet sync: Synced -> Locked" << endl;
                     }
                     else
                     {
                         demodState = DemodState::UNLOCKED;
+                        cout << "M17 Demodulator: Synced -> Unlocked" << endl;
                     }
                 }
                     break;
@@ -317,6 +323,7 @@ bool M17Demodulator::update(float *samples, size_t N)
                         {
                             demodState = DemodState::SYNC_UPDATE;
                             syncCount  = SYNCWORD_SAMPLES * 2;
+                            cout << "M17 Demodulator: Locked -> Sync Update" << endl;
                         }
                     }
                 }
@@ -349,6 +356,7 @@ bool M17Demodulator::update(float *samples, size_t N)
                                 samplingPoint  = packetSync.samplingIndex();
                                 missedSyncs    = 0;
                                 demodState     = DemodState::LOCKED;
+                                cout << "M17 Demodulator: Received packet sync: Sync Update -> Locked" << endl;
                                 break;
                             }
                         }
@@ -369,6 +377,7 @@ bool M17Demodulator::update(float *samples, size_t N)
                                 samplingPoint  = lsfSync.samplingIndex();
                                 missedSyncs    = 0;
                                 demodState     = DemodState::LOCKED;
+                                cout << "M17 Demodulator: Received LSF sync: Sync Update -> Locked" << endl;
                                 break;
                             }
                         }
@@ -382,10 +391,13 @@ bool M17Demodulator::update(float *samples, size_t N)
                         if(missedSyncs >= 4)
                         {
                             demodState = DemodState::UNLOCKED;
+                            cout << "M17 Demodulator: Missed too many syncs: Sync Update -> Unlocked" << endl;
+
                             locked     = false;
                         }
                         else
                         {
+                            cout << "M17 Demodulator: Did not receive any sync word, staying locked anyway" << endl;
                             demodState = DemodState::LOCKED;
                         }
 

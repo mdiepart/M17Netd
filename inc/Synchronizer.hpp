@@ -58,7 +58,7 @@ public:
      * @return +1 if a positive correlation peak has been found, -1 if a negative
      * correlation peak has been found an zero otherwise.
      */
-    int8_t update(Correlator< SYNCW_SIZE, SAMPLES_PER_SYM >& correlator,
+    int8_t update(const Correlator< SYNCW_SIZE, SAMPLES_PER_SYM >& correlator,
                   const int32_t posTh, const int32_t negTh)
     {
         int32_t sign    = 0;
@@ -113,7 +113,7 @@ public:
      *
      * @return the optimal sampling index.
      */
-    size_t samplingIndex()
+    size_t samplingIndex() const
     {
         return sampIndex;
     }

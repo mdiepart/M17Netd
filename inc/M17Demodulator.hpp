@@ -84,12 +84,12 @@ public:
      * @param invertPhase: invert the phase of the baseband signal before decoding.
      * @return true if a new frame has been fully decoded.
      */
-    bool update(float *samples, size_t N);
+    bool update(float *samples, const size_t N);
 
     /**
      * @return true if a demodulator is locked on an M17 stream.
      */
-    bool isLocked();
+    bool isLocked() const;
 
 private:
 
@@ -109,8 +109,7 @@ private:
     void reset();
 
     /**
-     * M17 baseband signal sampled at 24kHz, half of an M17 frame is processed
-     * at each update of the demodulator.
+     * M17 baseband signal sampled at 96kHz
      */
     static constexpr size_t     M17_SYMBOL_RATE         = 4800;
     static constexpr size_t     M17_FRAME_SYMBOLS       = 192;
@@ -118,13 +117,17 @@ private:
     static constexpr size_t     M17_SYNCWORD_SYMBOLS    = 8;
     static constexpr size_t     SAMPLES_PER_SYMBOL      = RX_SAMPLE_RATE / M17_SYMBOL_RATE;
     static constexpr size_t     FRAME_SAMPLES           = M17_FRAME_SYMBOLS * SAMPLES_PER_SYMBOL;
-    static constexpr size_t     SAMPLE_BUF_SIZE         = FRAME_SAMPLES / 2;
     static constexpr size_t     SYNCWORD_SAMPLES        = SAMPLES_PER_SYMBOL * M17_SYNCWORD_SYMBOLS;
+
+    /**
+     * M17 sync words
+     */
     static constexpr m17syncw_t LSF_SYNC_WORD           = {0x55, 0xF7};  // LSF sync word
     static constexpr m17syncw_t BERT_SYNC_WORD          = {0xDF, 0x55};  // BERT data sync word
     static constexpr m17syncw_t STREAM_SYNC_WORD        = {0xFF, 0x5D};  // Stream data sync word
     static constexpr m17syncw_t PACKET_SYNC_WORD        = {0x75, 0xFF};  // Packet data sync word
     static constexpr m17syncw_t EOT_SYNC_WORD           = {0x55, 0x5D};  // End of transmission sync word
+
     /**
      * Internal state of the demodulator.
      */
@@ -154,7 +157,6 @@ private:
     static constexpr std::array < float, 3 > sfDen = {1.0f,           -1.98148851f,     0.98165828f};
 
     DemodState                     demodState;      ///< Demodulator state
-    std::unique_ptr< int16_t[] >   baseband_buffer; ///< Buffer for baseband audio handling.
     std::unique_ptr<m17frame_t >   demodFrame;      ///< Frame being demodulated.
     std::unique_ptr<m17frame_t >   readyFrame;      ///< Fully demodulated frame to be returned.
     bool                           locked;          ///< A syncword was correctly demodulated.
@@ -171,7 +173,6 @@ private:
     iirfilt_rrrf                   dcr;             ///< DC removal filter
     firfilt_rrrf                   rrcos_filt;      ///< Root-raised cosine filter for baseband signal
     SyncWord                       lastSyncWord;
-
 
     Correlator   < M17_SYNCWORD_SYMBOLS, SAMPLES_PER_SYMBOL > correlator;
     Synchronizer < M17_SYNCWORD_SYMBOLS, SAMPLES_PER_SYMBOL > lsfSync{{ +3, +3, +3, +3, -3, -3, +3, -3 }};

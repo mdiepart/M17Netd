@@ -129,14 +129,14 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
                 if( (chan >= 6*noise) && !channel_bsy )
                 {
                     // Channel is busy
-                    cout << "Channel now busy" << endl;
+                    cout << "Channel now busy (chan=" << chan << ", noise=" << noise << ", ratio=" << chan/noise << ")" << endl;
                     channel_bsy = true;
 
                 }
                 else if( (chan < 6*noise) && channel_bsy)
                 {
                     // Channel is free
-                    cout << "Channel now free" << endl;
+                    cout << "Channel now free (chan=" << chan << ", noise=" << noise << ", ratio=" << chan/noise << ")" << endl;
                     channel_bsy = false;
                 }
 
@@ -163,7 +163,7 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
         }
         usleep(5000);
     }
-    
+
 
     fftwf_destroy_plan(fft_plan);
     fftwf_free(rx_samples);

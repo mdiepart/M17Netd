@@ -260,6 +260,7 @@ sdrnode::sdrnode(const unsigned long rx_freq, const unsigned long tx_freq, const
     sx1255.set_rx_freq(rx_frequency);
     sx1255.set_tx_freq(tx_frequency);
     sx1255.set_lna_gain(sx1255_drv::LNA_GAIN_MAX_min36);
+    sx1255.set_tx_mix_gain(12);
 
     // Open PCM device for RX
     open_pcm_rx();

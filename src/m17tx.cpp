@@ -105,8 +105,7 @@ m17tx::m17tx(const string_view &src, const string_view &dst, const shared_ptr<ve
 
     // Insert LSF frame (includes the syncword)
     send_frame(frame, nullptr, FRAME_LSF, &lsf, 0, 0);
-    std::copy(frame, frame+cnt, back_inserter(*symbols));
-    cnt = 0;
+    std::copy(frame, frame+SYM_PER_FRA, back_inserter(*symbols));
 
     uint16_t pkt_crc = CRC_M17(ip_pkt->data(), ip_pkt->size()); // Packet CRC
     ip_pkt->push_back(static_cast<uint8_t>(pkt_crc >> 8));

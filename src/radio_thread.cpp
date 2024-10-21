@@ -80,7 +80,23 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
 
             if(new_frame)
             {
-                rx_packet->add_frame(demodulator.getFrame());
+                array<uint8_t, 48> frame = demodulator.getFrame();
+                array<uint16_t, 2*SYM_PER_FRA> soft_bits_frame = {0};
+
+                // Inflate frame from hard bits to soft bits
+                for(size_t i = 0; i < SYM_PER_FRA; i++)
+                {
+                    size_t byte = i/4;
+                    size_t bits = 6-2*(i%4);
+
+                    if((frame[byte] >> (bits+1)) & 1)
+                        soft_bits_frame[2*i] = 0xFFFF;
+
+                    if((frame[byte] >> bits) & 1)
+                        soft_bits_frame[2*i+1] = 0xFFFF;
+                }
+
+                rx_packet->add_frame(soft_bits_frame);
 
                 if(rx_packet->is_error())
                 {

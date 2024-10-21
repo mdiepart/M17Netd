@@ -42,7 +42,7 @@
 namespace M17
 {
 
-using m17frame_t   = std::array< uint16_t, 192*2 >; // Data type for a full M17 data frame, including sync word
+using m17frame_t   = std::array< uint8_t, 48 >; // Data type for a full M17 data frame, including sync word (packed bits)
 using m17syncw_t   = std::array< uint8_t, 2  >; // Data type for a sync word
 
 class M17Demodulator
@@ -165,7 +165,6 @@ private:
     uint16_t                       frameIndex;      ///< Index for filling the raw frame.
     uint32_t                       sampleIndex;     ///< Sample index, from 0 to (SAMPLES_PER_SYMBOL - 1)
     uint32_t                       samplingPoint;   ///< Symbol sampling point
-    uint32_t                       sampleCount;     ///< Free-running sample counter
     uint8_t                        missedSyncs;     ///< Counter of missed synchronizations
     uint32_t                       initCount;       ///< Downcounter for initialization
     uint32_t                       syncCount;       ///< Downcounter for resynchronization

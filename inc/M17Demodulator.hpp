@@ -151,10 +151,11 @@ private:
     };
 
     /**
-     * Cofficients of the sample filter
+     * Cofficients of the sample filter.
+     * IIR filter ofthe 2nd order. Low-pass with a cut-off of 50 Hz
      */
-    static constexpr std::array < float, 3 > sfNum = {4.24433681e-05f, 8.48867363e-05f, 4.24433681e-05f};
-    static constexpr std::array < float, 3 > sfDen = {1.0f,           -1.98148851f,     0.98165828f};
+    static constexpr std::array < float, 3 > sfNum = {2.67111819e-06f, 5.34223638e-06f, 2.67111819e-06f};
+    static constexpr std::array < float, 3 > sfDen = {1.0f,           -1.99537201f,     0.99538269f};
 
     DemodState                     demodState;      ///< Demodulator state
     std::unique_ptr<m17frame_t >   demodFrame;      ///< Frame being demodulated.

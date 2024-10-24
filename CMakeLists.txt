@@ -55,7 +55,7 @@ add_custom_target(tests)
 # Declare executables
 add_executable(M17Netd ${m17netd_src} ${common_src})
 add_executable(test_tone EXCLUDE_FROM_ALL src/test_tone.cpp src/sx1255.cpp src/spi.cpp)
-add_executable(test_demod EXCLUDE_FROM_ALL src/test_demod.cpp src/M17Demodulator.cpp)
+add_executable(test_demod EXCLUDE_FROM_ALL src/test_demod.cpp src/M17Demodulator.cpp src/m17rx.cpp)
 add_executable(test_acq EXCLUDE_FROM_ALL src/test_acq.cpp src/sdrnode.cpp src/sx1255.cpp src/spi.cpp)
 add_dependencies(tests test_tone test_demod test_acq)
 

@@ -8,6 +8,7 @@
 #include "M17Demodulator.hpp"
 #include <cstring>
 #include <liquid/liquid.h>
+#include "m17rx.h"
 
 using namespace std;
 using namespace M17;
@@ -85,6 +86,7 @@ int main(int argc, char *argv[])
     iq_in_file.read(reinterpret_cast<char *>(&q), 4);
 
     float msg_samp;
+    shared_ptr<m17rx> rx_frame = make_shared<m17rx>();
 
     while( iq_in_file.good() && running )
     {
@@ -97,7 +99,35 @@ int main(int argc, char *argv[])
         if(new_frame)
         {
             cout << "New frame." << endl;
-            (void)m17dem.getFrame();
+
+            array<uint8_t, 48> frame = m17dem.getFrame();
+            array<uint16_t, 2*SYM_PER_FRA> soft_bits_frame = {0};
+
+            cout << "Frame's two first bytes: 0x" << hex << static_cast<uint16_t>(frame[0]) << static_cast<uint16_t>(frame[1]) << dec << endl;
+
+            // Inflate frame from hard bits to soft bits
+            for(size_t i = 0; i < 2*SYM_PER_FRA; i++)
+            {
+                size_t byte = i/8;
+                size_t bit = 7-(i%8);
+
+                if((frame[byte] >> bit) & 1)
+                    soft_bits_frame[i] = 0xFFFF;
+            }
+
+            rx_frame->add_frame(soft_bits_frame);
+
+            if(rx_frame->is_error())
+            {
+                cerr << "M17 frame is in error" << endl;
+                rx_frame = make_shared<m17rx>();
+            }
+
+            if(rx_frame->is_complete())
+            {
+                cout << "M17 Frame is complete!!!!" << endl;
+                rx_frame = make_shared<m17rx>();
+            }
         }
 
         cnt++;

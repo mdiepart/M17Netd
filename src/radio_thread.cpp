@@ -96,16 +96,13 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
                 array<uint16_t, 2*SYM_PER_FRA> soft_bits_frame = {0};
 
                 // Inflate frame from hard bits to soft bits
-                for(size_t i = 0; i < SYM_PER_FRA; i++)
+                for(size_t i = 0; i < 2*SYM_PER_FRA; i++)
                 {
-                    size_t byte = i/4;
-                    size_t bits = 6-2*(i%4);
-
-                    if((frame[byte] >> (bits+1)) & 1)
-                        soft_bits_frame[2*i] = 0xFFFF;
+                    size_t byte = i/8;
+                    size_t bits = 7-(i%8);
 
                     if((frame[byte] >> bits) & 1)
-                        soft_bits_frame[2*i+1] = 0xFFFF;
+                        soft_bits_frame[i] = 0xFFFF;
                 }
 
                 rx_packet->add_frame(soft_bits_frame);

@@ -446,7 +446,7 @@ int8_t M17Demodulator::updateFrame(int16_t sample)
     {
         symbol = -3;
     }
-    else if(sample > 0)
+    else if(sample > (outerDeviation.first + outerDeviation.second)/2)
     {
         symbol = +1;
     }

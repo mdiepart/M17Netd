@@ -1,12 +1,13 @@
 #include <array>
 #include <iostream>
 #include <m17.h>
+#include <cstring>
 
 #include "m17rx.h"
 
 using namespace std;
 
-m17rx::m17rx(): status(packet_status::EMPTY), lsf(), corrected_errors(0), received_pkt_frames(0)
+m17rx::m17rx(): status(packet_status::EMPTY), lsf(), corrected_errors(0), received_pkt_frames(-1)
 {
     pkt_data = new vector<uint8_t>();
     pkt_data->reserve(25); // Reserve space for at least one frame
@@ -86,9 +87,15 @@ int m17rx::add_frame(array<uint16_t, 2*SYM_PER_FRA> frame)
 
 
     // Decode the frame based on the syncword
+    array<uint8_t, 31> buffer; // Buffer to receive the decoded data because somehow,
+                               // somebody decided that the output buffer passed as an
+                               // argument to viterbi decoding functions needed to be one
+                               // byte longer than the actual output data, so this buffer
+                               // is 31 bytes for a max length of 30
     switch(sync_word)
     {
         case SYNC_LSF:
+        {
             if(status != packet_status::EMPTY)
             {
                 cerr << "m17rx: trying to add an LSF frame to a non-empty packet." << endl;
@@ -96,51 +103,60 @@ int m17rx::add_frame(array<uint16_t, 2*SYM_PER_FRA> frame)
             }
             status = packet_status::LSF_RECEIVED;
             // Decode 368 type-3 soft bits to type-1 bits, stored in the lsf array
-            corrected_errors += viterbi_decode_punctured(lsf.data(), deinterleaved.data(),
-                                    puncture_pattern_2, deinterleaved.size(), sizeof(puncture_pattern_2));
+            corrected_errors += viterbi_decode_punctured(buffer.data(), deinterleaved.data(),
+                                    puncture_pattern_1, deinterleaved.size(), sizeof(puncture_pattern_1));
+
+            memcpy(reinterpret_cast<void *>(&lsf), buffer.data()+1, 30);
+        }
         break;
 
         case SYNC_PKT:
+        {
             if(status != packet_status::LSF_RECEIVED)
             {
                 cerr << "m17rx: packet is not ready to receive a new packet frame." << endl;
-                return -1;
+                //return -1;
             }
             array<uint8_t, 26> pkt_type1; // 200+6 type-1 bits for pkt
 
             // Decode 368 type-3 soft bits to type-1 bits
-            corrected_errors += viterbi_decode_punctured(pkt_type1.data(), deinterleaved.data(),
+            corrected_errors += viterbi_decode_punctured(buffer.data(), deinterleaved.data(),
                                     puncture_pattern_3, deinterleaved.size(), sizeof(puncture_pattern_3));
 
+            memcpy(pkt_type1.data(), buffer.data()+1, 26);
+
             // Check that the frame number is consistent with what have been received previously
-            if(pkt_type1[25] & (1 << 5)) // Check if this is the last frame
+            if(pkt_type1[25] & (1 << 7)) // Check if this is the last frame
             {
-                size_t nb_bytes = pkt_type1[25] & 0x1F;
+                size_t nb_bytes = (pkt_type1[25] >> 2) & 0x1F;
                 pkt_data->insert(pkt_data->cend(), pkt_type1.cbegin(), pkt_type1.cbegin() + nb_bytes);
                 status = packet_status::COMPLETE;
             }
             else
             {
-                size_t frame_nb = pkt_type1[25] & 0x1F;
+                int frame_nb = (pkt_type1[25] >> 2) & 0x1F;
                 if(frame_nb == received_pkt_frames+1)
                 {
+		            cout << "Received frame number " << frame_nb << endl;
                     pkt_data->insert(pkt_data->cend(), pkt_type1.cbegin(), pkt_type1.cend() - 1);
                 }
                 else
                 {
                     status = packet_status::ERROR;
-                    cerr << "m17rx: The number of the frame added does not follow the number of the previous frame" << endl;
+                    cerr << "m17rx: The number of the frame added (" << frame_nb << ") does not follow the number of the previous frame" << endl;
                     return -1;
                 }
             }
 
             received_pkt_frames++;
-
+        }
         break;
 
         default:
+        {
             cerr << "m17rx: Unknown M17 sync word (0x" << hex << sync_word << dec << ")." << endl;
-            break;
+        }
+        break;
     }
 
     return 0;

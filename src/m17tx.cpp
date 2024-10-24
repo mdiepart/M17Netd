@@ -132,10 +132,10 @@ m17tx::m17tx(const string_view &src, const string_view &dst, const shared_ptr<ve
         if(index_i >= ip_pkt->size())
         {
             memset(pkt_data+index_o, 0, 26-index_o);
-            pkt_data[25] = index_o | (1 << 5); // EOT + pkt len
+            pkt_data[25] = ((index_o << 2) | (1 << 7)) & 0xFC; // EOT + pkt len
 
         }else{
-            pkt_data[25] = frame_number; // frame number
+            pkt_data[25] = frame_number << 2; // frame number
         }
 
         send_frame(frame, pkt_data, FRAME_PKT, nullptr, 0, 0);

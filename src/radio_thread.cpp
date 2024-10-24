@@ -35,6 +35,16 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
     radio_thread_cfg radio_cfg;
     cfg.getRadioConfig(radio_cfg);
 
+    if(radio_cfg.device.compare("sdrnode") != 0)
+    {
+        cerr << "Unsupported radio device: " << radio_cfg.device << endl;
+        return;
+    }
+
+    // Read configuration for SDRNode
+    sdrnode_cfg sdrnode_cfg;
+    cfg.getSDRNodeConfig(sdrnode_cfg);
+
     // Initialize frequency modulator / demodulator
     fmod = freqmod_create(radio_cfg.k);
     fdem = freqdem_create(radio_cfg.k);
@@ -58,6 +68,8 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
 
     // Create and initialize the radio
     sdrnode radio = sdrnode(radio_cfg.rx_freq, radio_cfg.tx_freq, radio_cfg.ppm);
+    radio.set_rx_gain(sdrnode_cfg.lna_gain);
+    radio.set_tx_gain(sdrnode_cfg.mix_gain);
 
     bool channel_bsy = true;
     while(running)

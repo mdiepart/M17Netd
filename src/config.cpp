@@ -5,6 +5,8 @@
 
 #include <toml.hpp>
 
+#include "sx1255.h"
+
 #include "config.h"
 
 using namespace std;
@@ -27,10 +29,55 @@ int config::getTunConfig(tunthread_cfg &tun_cfg) const
 
 int config::getRadioConfig(radio_thread_cfg &radio_cfg) const
 {
-    radio_cfg.rx_freq = config_tbl["radio"]["rx_frequency"].value_or(0UL);
-    radio_cfg.tx_freq = config_tbl["radio"]["tx_frequency"].value_or(0UL);
-    radio_cfg.k = config_tbl["radio"]["k_mod"].value_or(0.0f);
-    radio_cfg.ppm = config_tbl["radio"]["ppm"].value_or(0);
+    radio_cfg.device    = config_tbl["radio"]["device"].value_or("");
+    radio_cfg.rx_freq   = config_tbl["radio"]["rx_frequency"].value_or(0UL);
+    radio_cfg.tx_freq   = config_tbl["radio"]["tx_frequency"].value_or(0UL);
+    radio_cfg.k         = config_tbl["radio"]["k_mod"].value_or(0.0f);
+    radio_cfg.ppm       = config_tbl["radio"]["ppm"].value_or(0);
+
+    return EXIT_SUCCESS;
+}
+
+int config::getSDRNodeConfig(sdrnode_cfg &cfg) const
+{
+    cfg.spi_dev = config_tbl["sdrnode"]["spi_dev"].value_or("");
+    cfg.i2s_rx = config_tbl["sdrnode"]["i2s_rx"].value_or("");
+    cfg.i2s_tx = config_tbl["sdrnode"]["i2s_tx"].value_or("");
+
+    int lna_gain = config_tbl["sdrnode"]["lna_gain"].value_or(INT_MIN);
+    switch(lna_gain)
+    {
+        case -48:
+            cfg.lna_gain = sx1255_drv::LNA_GAIN_MAX_min48;
+            break;
+        case -36:
+            cfg.lna_gain = sx1255_drv::LNA_GAIN_MAX_min36;
+            break;
+        case -24:
+            cfg.lna_gain = sx1255_drv::LNA_GAIN_MAX_min24;
+            break;
+        case -12:
+            cfg.lna_gain = sx1255_drv::LNA_GAIN_MAX_min12;
+            break;
+        case -6:
+            cfg.lna_gain = sx1255_drv::LNA_GAIN_MAX_min6;
+            break;
+        case 0:
+            cfg.lna_gain = sx1255_drv::LNA_GAIN_MAX;
+            break;
+        default:
+            cerr << "Invalid LNA gain for SDRNode (" << lna_gain << "). Using -24." << endl;
+            cfg.lna_gain = sx1255_drv::LNA_GAIN_MAX_min24;
+    }
+
+    unsigned mix_gain = config_tbl["sdrnode"]["mix_gain"].value_or(UINT_MAX);
+    if(mix_gain > 15)
+    {
+        cerr << "SDRNode TX mixer gain too high (" << mix_gain << "). Using 15." << endl;
+        mix_gain = 15;
+    }
+
+    cfg.mix_gain = mix_gain;
 
     return EXIT_SUCCESS;
 }

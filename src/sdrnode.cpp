@@ -576,3 +576,16 @@ int sdrnode::transmit(const complex<float> *tx, size_t n)
 
     return 0;
 }
+
+int sdrnode::set_rx_gain(sx1255_drv::lna_gain gain)
+{
+    return sx1255.set_lna_gain(gain);
+}
+
+int sdrnode::set_tx_gain(unsigned gain)
+{
+    if(gain > 15)
+        return -1;
+
+    return sx1255.set_tx_mix_gain(gain);
+}

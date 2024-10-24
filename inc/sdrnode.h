@@ -139,4 +139,24 @@ class sdrnode
      */
     int transmit(const complex<float> *tx, const size_t n);
 
+    /**
+     * Sets the RX gain of the SDRNode
+     * The gain is not an absolute value but rather a value relative to the maximum gain
+     *
+     * @param gain the relative gain to use
+     *
+     * @return 0 on success, -1 on error
+     */
+    int set_rx_gain(sx1255_drv::lna_gain gain);
+
+    /**
+     * Sets the TX gain of the SDRNode
+     * The gain is not an absolute value. This controls the mixer gain of the SX1255 and ranges between 0 and 15.
+     *
+     * @param gain the gain to use
+     *
+     * @return 0 on success, -1 on error
+     */
+    int set_tx_gain(unsigned gain);
+
 };

@@ -1,3 +1,5 @@
+# SDRNode 1
+
 [general]
 callsign="ON4MOD-1"
 tx_queue_size=64
@@ -12,7 +14,7 @@ MTU=822
 tx_frequency=433475000
 rx_frequency=433475000
 k_mod=0.0375
-ppm=-21
+ppm=-28
 
 [[peers]]
 callsign="ON4MOD-2"

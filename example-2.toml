@@ -1,0 +1,33 @@
+# SDRNode 2
+
+[general]
+callsign="ON4MOD-2"
+tx_queue_size=64
+rx_queue_size=64
+
+[general.net_if]
+name="m17d"
+ip="172.16.0.8"
+MTU=822
+
+[radio]
+device = "sdrnode"
+tx_frequency=433475000
+rx_frequency=433475000
+k_mod=0.0375
+ppm=-32
+
+[[peers]]
+callsign="ON4MOD-1"
+ip="172.16.0.1"
+routes=["172.16.0.1/29"]
+
+[[peers]]
+callsign="ON4MOD-3"
+ip="172.16.0.16"
+routes=["172.16.0.16/29"]
+
+[sdrnode]
+spi_dev="/dev/spidev1.0"
+i2s_rx = "default:GDisDACout"
+i2s_tx = "default:GDisDACout"

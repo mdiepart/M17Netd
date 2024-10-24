@@ -65,24 +65,25 @@ int m17rx::add_frame(array<uint16_t, 2*SYM_PER_FRA> frame)
 
     array<uint16_t, 2*SYM_PER_PLD> deinterleaved;
 
-    // De-randomize the last 368 bits
-    randomize_soft_bits(frame.data() + 2*SYM_PER_SWD);
-
-    // de-interleave bits
-    reorder_soft_bits(deinterleaved.data(), frame.data() + 2*SYM_PER_SWD);
+    uint16_t sync_word = 0;
+    uint16_t *payload = &(frame[16]);
 
     // Check the first 16 bits for a sync word
-    uint16_t sync_word = 0;
     for(size_t i = 0; i < 16; i++)
     {
         // If bit is closer to 1
         if(frame[i] >= 0x7FFF)
         {
-            sync_word++;
+            sync_word |= (1<<(15-i));
         }
-        // Shift left
-        sync_word <<= 1;
     }
+
+    // De-randomize the last 368 bits
+    randomize_soft_bits(payload);
+
+    // de-interleave bits
+    reorder_soft_bits(deinterleaved.data(), payload);
+
 
     // Decode the frame based on the syncword
     switch(sync_word)
@@ -128,7 +129,7 @@ int m17rx::add_frame(array<uint16_t, 2*SYM_PER_FRA> frame)
                 else
                 {
                     status = packet_status::ERROR;
-                    cerr << "The number of the frame added does not follow the number of the previous frame" << endl;
+                    cerr << "m17rx: The number of the frame added does not follow the number of the previous frame" << endl;
                     return -1;
                 }
             }

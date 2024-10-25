@@ -132,8 +132,9 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
                     out[i] = abs(in[i]);
                 }
 
+                // measure the energy inside the channel, avoiding the DC component
                 float chan = 0, noise = 0;
-                for(size_t i = 0; i < 25; i++)
+                for(size_t i = 1; i < 25; i++)
                 {
                     chan += out[i];
                 }
@@ -147,18 +148,18 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
                     noise += out[i];
                 }
 
-                chan /= 50;
+                chan /= 49;
                 noise /= (512-50);
 
                 // Check if there is more energy in the channel than elsewhere in the spectrum
-                if( (chan >= 6*noise) && !channel_bsy )
+                if( (chan >= 3*noise) && !channel_bsy )
                 {
                     // Channel is busy
                     cout << "Channel now busy (chan=" << chan << ", noise=" << noise << ", ratio=" << chan/noise << ")" << endl;
                     channel_bsy = true;
 
                 }
-                else if( (chan < 6*noise) && channel_bsy)
+                else if( (chan < 3*noise) && channel_bsy)
                 {
                     // Channel is free
                     cout << "Channel now free (chan=" << chan << ", noise=" << noise << ", ratio=" << chan/noise << ")" << endl;

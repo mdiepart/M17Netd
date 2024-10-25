@@ -142,7 +142,7 @@ int sx1255_drv::set_lna_gain(lna_gain gain)
         return -1;
 
     // Modify the value and send
-    buffer[1] = (buffer[1] & 0x1F) | gain;
+    buffer[1] = (buffer[1] & 0x1F) | (gain << 5);
     buffer[0] |= REG_WRITE;
     ret = spi.send(buffer.data(), buffer.size());
 

@@ -123,7 +123,7 @@ int sx1255_drv::set_dac_gain(dac_gain gain)
 
     // Modify the value and send
     buffer[1] = (buffer[1] & 0x0F) | gain;
-    buffer[0] |= REG_WRITE;
+    buffer[0] = TXFE1_ADDR | REG_WRITE;
     ret = spi.send(buffer.data(), buffer.size());
 
     if(ret < 0)
@@ -143,7 +143,7 @@ int sx1255_drv::set_lna_gain(lna_gain gain)
 
     // Modify the value and send
     buffer[1] = (buffer[1] & 0x1F) | (gain << 5);
-    buffer[0] |= REG_WRITE;
+    buffer[0] = RXFE1_ADDR | REG_WRITE;
     ret = spi.send(buffer.data(), buffer.size());
 
     if(ret < 0)
@@ -164,7 +164,7 @@ int sx1255_drv::set_rx_pga_gain(unsigned char gain)
         return -1;
 
     buffer[1] = (buffer[1] & 0xE1) | gain;
-    buffer[0] |= REG_WRITE;
+    buffer[0] = RXFE1_ADDR | REG_WRITE;
     ret = spi.send_recv(buffer.data(), buffer.size());
     if(ret < 0)
         return -1;
@@ -184,7 +184,7 @@ int sx1255_drv::set_tx_mix_gain(unsigned char gain)
         return -1;
 
     buffer[1] = (buffer[1] & 0xF0) | gain;
-    buffer[0] |= REG_WRITE;
+    buffer[0] = TXFE1_ADDR | REG_WRITE;
     ret = spi.send_recv(buffer.data(), buffer.size());
     if(ret < 0)
         return -1;

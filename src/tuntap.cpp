@@ -284,6 +284,7 @@ int tun_device::add_routes_to_peer(const peer_t &peer)
 
         // Add route as dst
         dst.sin_addr.s_addr = inet_addr(std::string(r.substr(0, idx)).c_str());
+        dst.sin_addr.s_addr &= htonl(bin_mask);
         dst.sin_family = AF_INET;
         memcpy(&rt.rt_dst, &dst, sizeof(struct sockaddr));
 

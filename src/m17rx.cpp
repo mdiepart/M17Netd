@@ -92,6 +92,16 @@ int m17rx::add_frame(array<uint16_t, 2*SYM_PER_FRA> frame)
                                // argument to viterbi decoding functions needed to be one
                                // byte longer than the actual output data, so this buffer
                                // is 31 bytes for a max length of 30
+
+    if( __builtin_popcount(sync_word ^ SYNC_LSF) <= 1 )
+    {
+        sync_word = SYNC_LSF;
+    }
+    else if (__builtin_popcount(sync_word ^ SYNC_PKT) <= 1)
+    {
+        sync_word = SYNC_PKT;
+    }
+
     switch(sync_word)
     {
         case SYNC_LSF:

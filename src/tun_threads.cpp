@@ -7,6 +7,7 @@
 #include <chrono>
 #include <thread>
 
+#include <errno.h>
 #include <linux/if_tun.h>
 #include <netinet/ip.h>
 #include <unistd.h>
@@ -24,13 +25,26 @@ using namespace std;
 void to_net_monitor(atomic_bool &running, ConsumerProducerQueue<shared_ptr<m17rx>> &to_net, int event_fd)
 {
     std::chrono::milliseconds timeout(1000);
-    uint64_t pwrite_val = 1;
+    uint64_t write_val = 1;
 
     while(running)
     {
         if(to_net.wait_for_non_empty(timeout))
         {
-            pwrite(event_fd, &pwrite_val, 8, 0);
+            ssize_t ret = write(event_fd, &write_val, 8);
+            if(ret < 0)
+            {
+                cout << "write() error: returned " << errno << "(" << strerror(errno) << ")" << endl;
+            }
+            else
+            {
+                cout << "write wrote " << ret << "bytes" << endl;
+            }
+
+            while(!to_net.isEmpty())
+            {
+                usleep(100);
+            }
         }
     }
 }
@@ -149,7 +163,7 @@ void tun_thread::operator()(atomic_bool &running, const config &cfg,
 
                         // Check if payload is at least 1 byte + specifier + CRC (4 bytes total)
                         // Check if the specifier corresponds to IPV4
-                        if(payload.size() < 4 || payload[0] != 0x04)
+                        if(payload.size() >= 4 && payload[0] == 0x04)
                         {
                             if(CRC_M17(payload.data()+1, payload.size()-1) == 0)
                             {
@@ -167,7 +181,7 @@ void tun_thread::operator()(atomic_bool &running, const config &cfg,
 
                 // Clear data_avail_fd eventfd
                 uint64_t tmp;
-                pread(data_avail_fd, &tmp, 8, 0);
+                read(data_avail_fd, &tmp, 8);
             }
         }
     }

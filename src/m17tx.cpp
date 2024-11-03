@@ -58,7 +58,7 @@ constexpr array<float, 161> m17tx::taps =
 
 m17tx::m17tx(const string_view &src, const string_view &dst, const shared_ptr<vector<uint8_t>> ip_pkt): bb_samples(0), bb_idx(0), filt_offset(0)
 {
-    if(ip_pkt->size() > 820)
+    if(ip_pkt->size() > 822)
     {
         throw(invalid_argument("ip_pkt is longer than the maximum payload a packet superframe can contain."));
     }

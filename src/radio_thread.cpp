@@ -187,7 +187,6 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
             }
             while(running && (packet->baseband_samples_left() > 0));
         }
-        usleep(5000);
     }
 
 

@@ -249,9 +249,9 @@ bool M17Demodulator::update(float *samples, const size_t N)
                     // Find the new correlation peak
                     int32_t syncThresh = static_cast< int32_t >(corrThreshold * 32.0f);
                     int8_t  packetSyncStatus = packetSync.update(correlator, syncThresh, -syncThresh);
-                    int8_t  lsfSyncStatus = lsfSync.update(correlator, syncThresh, -syncThresh);
+                    int8_t  eotSyncStatus = EOTSync.update(correlator, syncThresh, -syncThresh);
 
-                    if(packetSyncStatus != 0)
+                    if(packetSyncStatus == 1)
                     {
                         // Correlation has to coincide with a syncword!
                         if(frameIndex == M17_SYNCWORD_SYMBOLS)
@@ -272,23 +272,21 @@ bool M17Demodulator::update(float *samples, const size_t N)
                             }
                         }
                     }
-                    else if(lsfSyncStatus)
+                    else if(eotSyncStatus == 1)
                     {
                         // Correlation has to coincide with a syncword!
                         if(frameIndex == M17_SYNCWORD_SYMBOLS)
                         {
-                            uint8_t hd  = hammingDistance((*demodFrame)[0], LSF_SYNC_WORD[0]);
-                                    hd += hammingDistance((*demodFrame)[1], LSF_SYNC_WORD[1]);
+                            uint8_t hd  = hammingDistance((*demodFrame)[0], EOT_SYNC_WORD[0]);
+                                    hd += hammingDistance((*demodFrame)[1], EOT_SYNC_WORD[1]);
 
-                            // Valid sync found: update deviation and sample
-                            // point, then go back to locked state
+                            // Valid EOT sync found: unlock demodulator
                             if(hd <= 1)
                             {
-                                outerDeviation = correlator.maxDeviation(samplingPoint);
-                                samplingPoint  = lsfSync.samplingIndex();
-                                missedSyncs    = 0;
-                                demodState     = DemodState::LOCKED;
-                                //cout << "M17 Demodulator: Received LSF sync: Sync Update -> Locked" << endl;
+                                missedSyncs = 0;
+                                demodState     = DemodState::UNLOCKED;
+                                locked = false;
+                                cout << "M17Demodulator: Received EOT sync: -> Unlocked" << endl;
                                 break;
                             }
                         }

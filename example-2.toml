@@ -31,5 +31,5 @@ routes=["172.16.0.16/29"]
 spi_dev="/dev/spidev1.0"
 i2s_rx = "default:GDisDACout"
 i2s_tx = "default:GDisDACout"
-lna_gain = -48
-mix_gain = 3
+lna_gain = -12
+mix_gain = 13

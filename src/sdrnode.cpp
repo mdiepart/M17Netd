@@ -377,7 +377,7 @@ int sdrnode::open_pcm_rx()
 
     snd_pcm_hw_params_free(pcm_hw_params);
 
-    cout << "pcm_hw_params set successfuly" << endl;
+    //cout << "pcm_hw_params set successfuly" << endl;
 
     err = snd_pcm_prepare(pcm_hdl);
     if (err < 0) {
@@ -449,7 +449,7 @@ int sdrnode::open_pcm_tx()
 
     snd_pcm_hw_params_free(pcm_hw_params);
 
-    cout << "pcm_hw_params set successfuly" << endl;
+    //cout << "pcm_hw_params set successfuly" << endl;
 
     err = snd_pcm_prepare(pcm_hdl);
     if (err < 0) {
@@ -486,6 +486,8 @@ int sdrnode::switch_rx()
 
     tx_nRx = false;
 
+    cout << "SDRNode in RX" << endl;
+
     return 0;
 }
 
@@ -509,6 +511,8 @@ int sdrnode::switch_tx()
         return -1;
 
     tx_nRx = true;
+
+    cout << "SDRNode in TX" << endl;
 
     return 0;
 }

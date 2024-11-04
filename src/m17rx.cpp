@@ -139,8 +139,8 @@ int m17rx::add_frame(array<uint16_t, 2*SYM_PER_FRA> frame)
             if(pkt_type1[25] & (1 << 7)) // Check if this is the last frame
             {
                 size_t nb_bytes = (pkt_type1[25] >> 2) & 0x1F;
-                cout << "Received last packet frame with " << nb_bytes << " bytes inside. Total payload size is " << pkt_data->size() << "." << endl;
                 pkt_data->insert(pkt_data->cend(), pkt_type1.cbegin(), pkt_type1.cbegin() + nb_bytes);
+                cout << "Received last packet frame with " << nb_bytes << " bytes inside. Total payload size is " << pkt_data->size() << "." << endl;
                 status = packet_status::COMPLETE;
             }
             else

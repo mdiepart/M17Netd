@@ -178,7 +178,7 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
             if(ret < 0)
                 break;
 
-            cout << "Received packet for radio." << endl;
+            cout << "Fetched packet for radio." << endl;
             do
             {
                 vector<float> tx_baseband = packet->get_baseband_samples(block_size);

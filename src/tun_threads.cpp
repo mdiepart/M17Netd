@@ -36,10 +36,6 @@ void to_net_monitor(atomic_bool &running, ConsumerProducerQueue<shared_ptr<m17rx
             {
                 cout << "write() error: returned " << errno << "(" << strerror(errno) << ")" << endl;
             }
-            else
-            {
-                cout << "write wrote " << ret << "bytes" << endl;
-            }
 
             while(!to_net.isEmpty())
             {

@@ -156,7 +156,6 @@ bool M17Demodulator::update(float *samples, const size_t N)
                     {
                         demodState = DemodState::SYNCED;
                         lastSyncWord = SyncWord::LSF;
-                        cout << "M17 Demodulator: Received LSF sync: Unlock -> Synced" << endl;
                     }
                 }
                     break;
@@ -196,12 +195,12 @@ bool M17Demodulator::update(float *samples, const size_t N)
                         {
                             locked     = true;
                             demodState = DemodState::LOCKED;
-                            cout << "M17Demodulator: Received packet sync: Synced -> Locked" << endl;
+                            //cout << "M17Demodulator: Received packet sync: Synced -> Locked" << endl;
                         }
                         else
                         {
                             demodState = DemodState::UNLOCKED;
-                            cout << "M17Demodulator: PACKET sync not recognized. hd=" << static_cast<uint16_t>(hd) << ", Synced -> Unlocked" << endl;
+                            //cout << "M17Demodulator: PACKET sync not recognized. hd=" << static_cast<uint16_t>(hd) << ", Synced -> Unlocked" << endl;
                         }
                     }else if(lastSyncWord == SyncWord::LSF)
                     {
@@ -211,12 +210,12 @@ bool M17Demodulator::update(float *samples, const size_t N)
                         {
                             locked     = true;
                             demodState = DemodState::LOCKED;
-                            cout << "M17Demodulator: Received LSF sync: Synced -> Locked" << endl;
+                            //cout << "M17Demodulator: Received LSF sync: Synced -> Locked" << endl;
                         }
                         else
                         {
                             demodState = DemodState::UNLOCKED;
-                            cout << "M17Demodulator: LSF sync not recognized. hd=" << static_cast<uint16_t>(hd) << ", Synced -> Unlocked" << endl;
+                            //cout << "M17Demodulator: LSF sync not recognized. hd=" << static_cast<uint16_t>(hd) << ", Synced -> Unlocked" << endl;
                         }
                     }
                 }
@@ -235,7 +234,7 @@ bool M17Demodulator::update(float *samples, const size_t N)
                         {
                             demodState = DemodState::SYNC_UPDATE;
                             syncCount  = SYNCWORD_SAMPLES * 2;
-                            cout << "M17 Demodulator: Locked -> Sync Update" << endl;
+                            //cout << "M17 Demodulator: Locked -> Sync Update" << endl;
                         }
                     }
                 }
@@ -268,7 +267,7 @@ bool M17Demodulator::update(float *samples, const size_t N)
                                 samplingPoint  = packetSync.samplingIndex();
                                 missedSyncs    = 0;
                                 demodState     = DemodState::LOCKED;
-                                cout << "M17 Demodulator: Received packet sync: Sync Update -> Locked" << endl;
+                                //cout << "M17 Demodulator: Received packet sync: Sync Update -> Locked" << endl;
                                 break;
                             }
                         }
@@ -289,7 +288,7 @@ bool M17Demodulator::update(float *samples, const size_t N)
                                 samplingPoint  = lsfSync.samplingIndex();
                                 missedSyncs    = 0;
                                 demodState     = DemodState::LOCKED;
-                                cout << "M17 Demodulator: Received LSF sync: Sync Update -> Locked" << endl;
+                                //cout << "M17 Demodulator: Received LSF sync: Sync Update -> Locked" << endl;
                                 break;
                             }
                         }
@@ -303,13 +302,13 @@ bool M17Demodulator::update(float *samples, const size_t N)
                         if(missedSyncs >= 4)
                         {
                             demodState = DemodState::UNLOCKED;
-                            cout << "M17 Demodulator: Missed too many syncs: Sync Update -> Unlocked" << endl;
+                            //cout << "M17 Demodulator: Missed too many syncs: Sync Update -> Unlocked" << endl;
 
                             locked     = false;
                         }
                         else
                         {
-                            cout << "M17 Demodulator: Did not receive any sync word, staying locked anyway" << endl;
+                            //cout << "M17 Demodulator: Did not receive any sync word, staying locked anyway" << endl;
                             demodState = DemodState::LOCKED;
                         }
 
@@ -363,6 +362,7 @@ int8_t M17Demodulator::updateFrame(int16_t sample)
         std::swap(readyFrame, demodFrame);
         frameIndex = 0;
         newFrame   = true;
+        //cout << "M17Demodulator: completed a frame" << endl;
     }
 
     return symbol;

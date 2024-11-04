@@ -39,6 +39,15 @@
 #include <iir.hpp>
 #include <liquid/liquid.h>
 
+/**
+ * Set to 1 to enable file outputs of various stages of the demodulation
+ */
+#define M17DEMOD_DEBUG_OUT 0
+
+#if M17DEMOD_DEBUG_OUT
+#include <fstream>
+#endif
+
 namespace M17
 {
 
@@ -178,6 +187,16 @@ private:
     Synchronizer < M17_SYNCWORD_SYMBOLS, SAMPLES_PER_SYMBOL > lsfSync{{ +3, +3, +3, +3, -3, -3, +3, -3 }};
     Synchronizer < M17_SYNCWORD_SYMBOLS, SAMPLES_PER_SYMBOL > packetSync{{ +3, -3, +3, +3, -3, -3, -3, -3 }};
     Iir          < 3 >                                        sampleFilter{sfNum, sfDen};
+
+#if M17DEMOD_DEBUG_OUT
+    uint32_t                       total_cnt;
+    ofstream post_demod;
+    size_t idx = 0;
+    ofstream post_dcr;
+    ofstream post_rrcos;
+    ofstream samp_pts;
+#endif
+
 };
 
 } /* M17 */

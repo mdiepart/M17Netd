@@ -31,124 +31,6 @@
 
 using namespace M17;
 
-#ifdef ENABLE_DEMOD_LOG
-
-#include <ringbuf.hpp>
-#include <atomic>
-#ifndef PLATFORM_LINUX
-#include <usb_vcom.h>
-#endif
-
-typedef struct
-{
-    int16_t sample;
-    int32_t conv;
-    float   conv_th;
-    int32_t sample_index;
-    float   qnt_pos_avg;
-    float   qnt_neg_avg;
-    int32_t symbol;
-    int32_t frame_index;
-    uint8_t flags;
-    uint8_t _empty;
-}
-__attribute__((packed)) log_entry_t;
-
-#ifdef PLATFORM_LINUX
-#define LOG_QUEUE 160000
-#else
-#define LOG_QUEUE 1024
-#endif
-
-static RingBuffer< log_entry_t, LOG_QUEUE > logBuf;
-static std::atomic_bool dumpData;
-static bool      logRunning;
-static bool      trigEnable;
-static bool      triggered;
-static uint32_t  trigCnt;
-static pthread_t logThread;
-
-static void *logFunc(void *arg)
-{
-    (void) arg;
-
-    #ifdef PLATFORM_LINUX
-    FILE *csv_log = fopen("demod_log.csv", "w");
-    fprintf(csv_log, "Sample,Convolution,Threshold,Index,Max,Min,Symbol,I,Flags\n");
-    #endif
-
-    uint8_t emptyCtr = 0;
-
-    while(logRunning)
-    {
-        if(dumpData)
-        {
-            // Log up to four entries filled with zeroes before terminating
-            // the dump.
-            log_entry_t entry;
-            memset(&entry, 0x00, sizeof(log_entry_t));
-            if(logBuf.pop(entry, false) == false) emptyCtr++;
-
-            if(emptyCtr >= 100)
-            {
-                dumpData = false;
-                emptyCtr = 0;
-                #ifdef PLATFORM_LINUX
-                logRunning = false;
-                #endif
-            }
-
-            #ifdef PLATFORM_LINUX
-            fprintf(csv_log, "%d,%d,%f,%d,%f,%f,%d,%d,%d\n",
-                    entry.sample,
-                    entry.conv,
-                    entry.conv_th,
-                    entry.sample_index,
-                    entry.qnt_pos_avg,
-                    entry.qnt_neg_avg,
-                    entry.symbol,
-                    entry.frame_index,
-                    entry.flags);
-            fflush(csv_log);
-            #else
-            vcom_writeBlock(&entry, sizeof(log_entry_t));
-            #endif
-        }
-    }
-
-    #ifdef PLATFORM_LINUX
-    fclose(csv_log);
-    exit(-1);
-    #endif
-
-    return NULL;
-}
-
-static inline void pushLog(const log_entry_t& e)
-{
-    /*
-     * 1) do not push data to log while dump is in progress
-     * 2) if triggered, increase the counter
-     * 3) fill half of the buffer with entries after the trigger, then start dump
-     * 4) if buffer is full, erase the oldest element
-     * 5) push data without blocking
-     */
-
-    if(dumpData) return;
-    if(triggered) trigCnt++;
-    if(trigCnt >= LOG_QUEUE/2)
-    {
-        dumpData  = true;
-        triggered = false;
-        trigCnt   = 0;
-    }
-    if(logBuf.full()) logBuf.eraseElement();
-    logBuf.push(e, false);
-}
-
-#endif
-
-
 M17Demodulator::M17Demodulator()
 {
     dcr = iirfilt_rrrf_create_dc_blocker(0.001f);
@@ -186,7 +68,16 @@ void M17Demodulator::init()
     trigCnt    = 0;
     pthread_create(&logThread, NULL, logFunc, NULL);
     #endif
+
     cout << "M17 Demodulator initialized" << endl;
+
+#if M17DEMOD_DEBUG_OUT
+    total_cnt = 0;
+    post_demod.open("./post_demod.raw", ios_base::binary | ios_base::trunc);
+    post_dcr.open("./post_drc.raw", ios_base::binary | ios_base::trunc);
+    post_rrcos.open("./post_rrcos.raw", ios_base::binary | ios_base::trunc);
+    samp_pts.open("./sampling_points.pts", ios_base::binary | ios_base::trunc);
+#endif
 }
 
 void M17Demodulator::terminate()
@@ -194,9 +85,12 @@ void M17Demodulator::terminate()
     demodFrame.reset();
     readyFrame.reset();
 
-    #ifdef ENABLE_DEMOD_LOG
-    logRunning = false;
-    #endif
+#if M17DEMOD_DEBUG_OUT
+    post_demod.close();
+    post_dcr.close();
+    post_rrcos.close();
+    samp_pts.close();
+#endif
 }
 
 const M17::m17frame_t& M17Demodulator::getFrame()
@@ -215,9 +109,14 @@ bool M17Demodulator::update(float *samples, const size_t N)
 {
     if(samples != nullptr)
     {
+#if M17DEMOD_DEBUG_OUT
+        post_demod.write(reinterpret_cast<const char*>(samples), N*sizeof(float));
+#endif
         // Apply DC removal filter
         iirfilt_rrrf_execute_block(dcr, samples, N, samples);
-
+#if M17DEMOD_DEBUG_OUT
+        post_dcr.write(reinterpret_cast<const char*>(samples), N*sizeof(float));
+#endif
         // Process samples
         for(size_t i = 0; i < N; i++)
         {
@@ -225,6 +124,10 @@ bool M17Demodulator::update(float *samples, const size_t N)
             float   elem;
             firfilt_rrrf_push(rrcos_filt, samples[i]);
             firfilt_rrrf_execute(rrcos_filt, &elem);
+#if M17DEMOD_DEBUG_OUT
+            total_cnt++;
+            post_rrcos.write(reinterpret_cast<const char *>(&elem), sizeof(float));
+#endif
             int16_t sample = static_cast<int16_t>(elem*500); // Scale up
 
             // Update correlator and sample filter for correlation thresholds
@@ -247,18 +150,9 @@ bool M17Demodulator::update(float *samples, const size_t N)
                 case DemodState::UNLOCKED:
                 {
                     int32_t syncThresh = static_cast< int32_t >(corrThreshold * 32.0f);
-                    //int8_t  packetSyncStatus = packetSync.update(correlator, syncThresh, -syncThresh);
                     int8_t  lsfSyncStatus = lsfSync.update(correlator, syncThresh, -syncThresh);
 
-                    // We only check for positive correlation peaks because we
-                    // are not interrested in streams and BERTs
-                    /*if(packetSyncStatus == 1)
-                    {
-                        demodState = DemodState::SYNCED;
-                        lastSyncWord = SyncWord::PACKET;
-                        cout << "M17 Demodulator: Received packet sync: Unlock -> Synced" << endl;
-                    }
-                    else */if(lsfSyncStatus == 1)
+                    if(lsfSyncStatus == 1)
                     {
                         demodState = DemodState::SYNCED;
                         lastSyncWord = SyncWord::LSF;
@@ -456,6 +350,13 @@ int8_t M17Demodulator::updateFrame(int16_t sample)
     }
 
     setSymbol(*demodFrame, frameIndex++, symbol);
+
+#if M17DEMOD_DEBUG_OUT
+    float tmp = total_cnt;
+    float tmp2 = sample;
+    samp_pts.write(reinterpret_cast<const char*>(&tmp), 4);
+    samp_pts.write(reinterpret_cast<const char*>(&tmp2), 4);
+#endif
 
     if(frameIndex >= M17_FRAME_SYMBOLS)
     {

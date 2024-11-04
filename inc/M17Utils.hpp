@@ -175,7 +175,7 @@ class dc_remover
     {
         if(length < 2)
             return;
-        
+
         std::size_t pos = 0;
 
         if(!initialized)

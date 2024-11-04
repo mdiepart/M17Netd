@@ -1,3 +1,23 @@
+/****************************************************************************
+ * M17Netd                                                                  *
+ * Copyright (C) 2024 by Sylvain Azarian F4GKR                              *
+ *                       Morgan Diepart ON4MOD                              *
+ *                       SDR-Engineering SRL                                *
+ *                                                                          *
+ * This program is free software: you can redistribute it and/or modify     *
+ * it under the terms of the GNU Affero General Public License as published *
+ * by the Free Software Foundation, either version 3 of the License, or     *
+ * (at your option) any later version.                                      *
+ *                                                                          *
+ * This program is distributed in the hope that it will be useful,          *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of           *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the            *
+ * GNU Affero General Public License for more details.                      *
+ *                                                                          *
+ * You should have received a copy of the GNU Affero General Public License *
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.    *
+ ****************************************************************************/
+
 #ifndef __CONSUMERPRODUCERQUEUE_H__
 #define __CONSUMERPRODUCERQUEUE_H__
 
@@ -7,16 +27,6 @@
 #include <mutex>
 #include <condition_variable>
 #include <chrono>
-
-/*
- * DISCLAIMER:
- * I have no idea who wrote the following file, who to credit or
- * the license under which it is published.
- *
- * This file was slightly modified to include timeouts and fix compilation errors
- *
- * Morgan Diepart 08/2024
- */
 
 /*
  * Some references in order
@@ -29,7 +39,10 @@
  *
  * C++ 11 thread reference:
  * http://en.cppreference.com/w/cpp/thread
+ *
+ * Sylvain Azarian F4GKR
  */
+
 template<typename T>
 class ConsumerProducerQueue
 {

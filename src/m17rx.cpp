@@ -125,7 +125,7 @@ int m17rx::add_frame(array<uint16_t, 2*SYM_PER_FRA> frame)
             if(status != packet_status::LSF_RECEIVED)
             {
                 cerr << "m17rx: packet is not ready to receive a new packet frame." << endl;
-                //return -1;
+                return -1;
             }
             array<uint8_t, 26> pkt_type1; // 200+6 type-1 bits for pkt
 
@@ -139,6 +139,7 @@ int m17rx::add_frame(array<uint16_t, 2*SYM_PER_FRA> frame)
             if(pkt_type1[25] & (1 << 7)) // Check if this is the last frame
             {
                 size_t nb_bytes = (pkt_type1[25] >> 2) & 0x1F;
+                cout << "Received last packet frame with " << nb_bytes << " bytes inside. Total payload size is " << pkt_data->size() << "." << endl;
                 pkt_data->insert(pkt_data->cend(), pkt_type1.cbegin(), pkt_type1.cbegin() + nb_bytes);
                 status = packet_status::COMPLETE;
             }
@@ -147,13 +148,13 @@ int m17rx::add_frame(array<uint16_t, 2*SYM_PER_FRA> frame)
                 int frame_nb = (pkt_type1[25] >> 2) & 0x1F;
                 if(frame_nb == received_pkt_frames+1)
                 {
-		            cout << "Received frame number " << frame_nb << endl;
+		            //cout << "Received frame number " << frame_nb << endl;
                     pkt_data->insert(pkt_data->cend(), pkt_type1.cbegin(), pkt_type1.cend() - 1);
                 }
                 else
                 {
                     status = packet_status::ERROR;
-                    cerr << "m17rx: The number of the frame added (" << frame_nb << ") does not follow the number of the previous frame" << endl;
+                    cerr << "m17rx: The number of the frame added (" << frame_nb << ") does not follow the number of the previous frame (" << received_pkt_frames << ")." << endl;
                     return -1;
                 }
             }

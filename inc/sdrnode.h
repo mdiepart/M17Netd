@@ -60,7 +60,7 @@ class sdrnode
     static constexpr const char *audio_rx_dev     = "default:GDisDACout";
     static constexpr const char *audio_tx_dev     = "default:GDisDACout";
 
-    static constexpr snd_pcm_access_t pcm_access = SND_PCM_ACCESS_RW_INTERLEAVED;
+    static constexpr snd_pcm_access_t pcm_access = SND_PCM_ACCESS_MMAP_INTERLEAVED; //SND_PCM_ACCESS_RW_INTERLEAVED;
     snd_pcm_t *pcm_hdl;
 
     /**

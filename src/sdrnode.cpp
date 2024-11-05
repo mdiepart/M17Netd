@@ -506,6 +506,7 @@ int sdrnode::switch_rx()
     tx_nRx = false;
 
     cout << "SDRNode in RX" << endl;
+    snd_pcm_start(pcm_hdl);
 
     return 0;
 }
@@ -538,29 +539,51 @@ int sdrnode::switch_tx()
 
 size_t sdrnode::receive(complex<float> *rx, size_t n)
 {
-    // TODO use snd_pcm_mmap_readi to avoid an unnecessary malloc and copy
     if(!tx_nRx)
     {
-        int32_t *buff = new int32_t[n*2];
-        if(buff == nullptr)
-            return 0;
+        const snd_pcm_channel_area_t *area;
+        snd_pcm_sframes_t sret;
+        snd_pcm_uframes_t offset, frames;
+        int iret;
+        size_t read = 0; // Number of samples (frames) read
 
-        snd_pcm_sframes_t read = snd_pcm_readi(pcm_hdl, buff, n);
+        while(read < n)
+        {
+            frames = n - read;
 
-        if(read < 0)
-            read = snd_pcm_recover(pcm_hdl, read, 0);
-        if(read < 0)
-        {
-            cout << "pcm read returned " << read << endl;
-            delete[](buff);
-            return 0;
+            sret = snd_pcm_avail_update(pcm_hdl);
+            if(sret < 0)
+            {
+                snd_pcm_recover(pcm_hdl, sret, 0);
+                sret = snd_pcm_avail_update(pcm_hdl);
+                if(sret < 0)
+                    return 0;
+            }
+
+            iret = snd_pcm_mmap_begin(pcm_hdl, &area, &offset, &frames);
+            if(iret < 0)
+            {
+                snd_pcm_recover(pcm_hdl, iret, 0);
+                iret = snd_pcm_mmap_begin(pcm_hdl, &area, &offset, &frames);
+                if(iret < 0)
+                    return 0;
+            }
+
+            // One frame is two 32 bits integers
+            int32_t *buff = reinterpret_cast<int32_t *>(area->addr) + area->first/64 + 2*offset;
+            int24_to_float<24>(buff, reinterpret_cast<float*>(rx+read), frames*2);
+
+            sret = snd_pcm_mmap_commit(pcm_hdl, offset, frames);
+
+            if(sret < 0)
+            {
+                snd_pcm_recover(pcm_hdl, sret, 0);
+                return 0;
+            }
+
+            read += frames;
         }
-        else if(read > 0)
-        {
-            int24_to_float<24>(buff, reinterpret_cast<float*>(rx), (size_t)read*2);
-            delete[](buff);
-            return read;
-        }
+        return read;
     }
 
     return 0;
@@ -570,34 +593,52 @@ int sdrnode::transmit(const complex<float> *tx, size_t n)
 {
     if(tx_nRx)
     {
-        int32_t *buff = new int32_t[n*2];
+        const snd_pcm_channel_area_t *area;
+        snd_pcm_sframes_t sret;
+        snd_pcm_uframes_t offset, frames;
+        int iret;
+        size_t written = 0;
 
-        if(buff == nullptr)
-            return 0;
-
-        float_to_int24<23>(reinterpret_cast<const float*>(tx), buff, n*2);
-
-        snd_pcm_sframes_t written = 0;
-        while(n > 0)
+        while(written < n)
         {
-            written = snd_pcm_writei(pcm_hdl, buff, n);
-            if(written > 0)
-                n -= written;
-            else if(written < 0)
+            frames = n - written;
+
+            sret = snd_pcm_avail_update(pcm_hdl);
+            if(sret < 0)
             {
-                written = snd_pcm_recover(pcm_hdl, written, 0);
-                if(written < 0)
-                    break;
+                sret = snd_pcm_recover(pcm_hdl, sret, 0);
+                if(sret < 0)
+                    return -1;
             }
 
+            iret = snd_pcm_mmap_begin(pcm_hdl, &area, &offset, &frames);
+            if(iret < 0)
+            {
+                snd_pcm_recover(pcm_hdl, iret, 0);
+                iret = snd_pcm_mmap_begin(pcm_hdl, &area, &offset, &frames);
+                if(iret < 0)
+                    return -1;
+            }
+
+            // One frame is two 32 bits integers
+            int32_t *buff = reinterpret_cast<int32_t *>(area->addr) + area->first/64 + 2*offset;
+            float_to_int24<23>(reinterpret_cast<const float*>(tx+written), buff, frames*2);
+
+            sret = snd_pcm_mmap_commit(pcm_hdl, offset, frames);
+
+            if(sret < 0)
+            {
+                snd_pcm_recover(pcm_hdl, sret, 0);
+                return -1;
+            }
+
+            written += frames;
         }
 
-        delete[](buff);
-
-        return (written < 0)?-1:0;
+        return (written < n)?-1:0;
     }
 
-    return 0;
+    return -1;
 }
 
 int sdrnode::set_rx_gain(sx1255_drv::lna_gain gain)

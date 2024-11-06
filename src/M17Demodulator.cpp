@@ -133,6 +133,7 @@ bool M17Demodulator::update(float *samples, const size_t N)
             // Update correlator and sample filter for correlation thresholds
             correlator.sample(sample);
             corrThreshold = sampleFilter(std::abs(sample));
+            int32_t syncThresh = static_cast< int32_t >(corrThreshold * 32.0f);
 
             switch(demodState)
             {
@@ -149,7 +150,6 @@ bool M17Demodulator::update(float *samples, const size_t N)
 
                 case DemodState::UNLOCKED:
                 {
-                    int32_t syncThresh = static_cast< int32_t >(corrThreshold * 32.0f);
                     int8_t  lsfSyncStatus = lsfSync.update(correlator, syncThresh, -syncThresh);
 
                     if(lsfSyncStatus == 1)
@@ -247,9 +247,8 @@ bool M17Demodulator::update(float *samples, const size_t N)
                         updateFrame(sample);
 
                     // Find the new correlation peak
-                    int32_t syncThresh = static_cast< int32_t >(corrThreshold * 32.0f);
                     int8_t  packetSyncStatus = packetSync.update(correlator, syncThresh, -syncThresh);
-                    int8_t  eotSyncStatus = EOTSync.update(correlator, syncThresh, -syncThresh);
+                    int8_t  eotSyncStatus = EOTSync.update(correlator, 0.87*syncThresh, -0.87*syncThresh);
 
                     if(packetSyncStatus == 1)
                     {

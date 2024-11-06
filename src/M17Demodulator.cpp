@@ -33,7 +33,7 @@ using namespace M17;
 
 M17Demodulator::M17Demodulator()
 {
-    dcr = iirfilt_rrrf_create_dc_blocker(0.001f);
+    dcr = iirfilt_rrrf_create_dc_blocker(0.0002f);
     float taps[161];
     memcpy(taps, rrc_taps_20, 161*sizeof(float));
     rrcos_filt = firfilt_rrrf_create(taps, 161);

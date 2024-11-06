@@ -146,45 +146,54 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
                 // Re-use rx_samples to store the module of the array
                 complex<float> *in = reinterpret_cast<complex<float> *>(rx_samples_fft);
                 float *out = reinterpret_cast<float *>(rx_samples);
-                for(size_t i = 0; i < 512; i++)
+                for(size_t i = 0; i < fft_size; i++)
                 {
                     out[i] = abs(in[i]);
                 }
 
                 // measure the energy inside the channel, avoiding the DC component
                 float chan = 0, noise = 0;
-                for(size_t i = 1; i < 25; i++)
+                for(size_t i = 1; i < half_chan_width; i++)
                 {
                     chan += out[i];
                 }
-                for(size_t i = 512-25; i < 512; i++)
+                for(size_t i = fft_size-half_chan_width; i < fft_size; i++)
                 {
                     chan += out[i];
                 }
 
-                for(size_t i = 25; i < 512-25; i++)
+                for(size_t i = half_chan_width; i < fft_size-half_chan_width; i++)
                 {
                     noise += out[i];
                 }
 
-                chan /= 49;
-                noise /= (512-50);
+                chan /= 2*half_chan_width-1;
+                noise /= (fft_size-2*half_chan_width);
 
                 // Check if there is more energy in the channel than elsewhere in the spectrum
-                if( (chan >= 3*noise) && !channel_bsy )
+                if( (chan >= 5*noise) && !channel_bsy )
                 {
                     // Channel is busy
                     cout << "Channel now busy (chan=" << chan << ", noise=" << noise << ", ratio=" << chan/noise << ")" << endl;
                     channel_bsy = true;
 
                 }
-                else if( (chan < 3*noise) && channel_bsy)
+                else if( (chan < 5*noise) && channel_bsy)
                 {
                     // Channel is free
                     cout << "Channel now free (chan=" << chan << ", noise=" << noise << ", ratio=" << chan/noise << ")" << endl;
                     channel_bsy = false;
                 }
-
+                /*else
+                {
+                    static size_t counter = 0;
+                    if(counter >= 2000)
+                    {
+                        cout << "channel is " << (channel_bsy?"busy":"free") << ": chan=" << chan << ", noise=" << noise << ", ratio=" << chan/noise << endl;
+                        counter = 0;
+                    }
+                    counter++;
+                }*/ // Uncomment to display channel status every 2000 iters
             }
         }
 

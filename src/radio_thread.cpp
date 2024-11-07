@@ -111,20 +111,11 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
 
             if(new_frame)
             {
-                array<uint8_t, 48> frame = demodulator.getFrame();
-                array<uint16_t, 2*SYM_PER_FRA> soft_bits_frame = {0};
+                array<uint16_t, 2*SYM_PER_FRA> frame = demodulator.getFrame();
+                array<uint8_t, 2> sync_word = demodulator.getFrameSyncWord();
+                uint16_t sync_word_packed = (static_cast<uint16_t>(sync_word[0]) << 8) + sync_word[1];
 
-                // Inflate frame from hard bits to soft bits
-                for(size_t i = 0; i < 2*SYM_PER_FRA; i++)
-                {
-                    size_t byte = i/8;
-                    size_t bits = 7-(i%8);
-
-                    if((frame[byte] >> bits) & 1)
-                        soft_bits_frame[i] = 0xFFFF;
-                }
-
-                rx_packet->add_frame(soft_bits_frame);
+                rx_packet->add_frame(sync_word_packed, frame);
 
                 if(rx_packet->is_error())
                 {

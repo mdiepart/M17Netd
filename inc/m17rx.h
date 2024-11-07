@@ -41,11 +41,12 @@ class m17rx
     /**
      * Append a frame to the packet
      *
-     * @param frame an array of 2*192 (384) soft bits (16 bits unsigned integers, one per bit)
+     * @param sync_word the sync_word at the beginning of the frame (as packed bits)
+     * @param frame an array of 2*192 (384) soft bits (16 bits unsigned integers, one per bit) including the sync_word
      *
      * @return 0 on success, -1 on error
      */
-    int add_frame(array<uint16_t, 2*SYM_PER_FRA> frame);
+    int add_frame(uint16_t sync_word, array<uint16_t, 2*SYM_PER_FRA> frame);
 
     /**
      * Check if the frame received is valid

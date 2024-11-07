@@ -253,7 +253,7 @@ bool M17Demodulator::update(float *samples, const size_t N)
 
                         // When we have reached almost the end of a frame, switch
                         // to syncpoint update.
-                        if(frameIndex == (M17_FRAME_SYMBOLS - M17_SYNCWORD_SYMBOLS/2))
+                        if(frameIndex == (2*M17_FRAME_SYMBOLS - M17_SYNCWORD_SYMBOLS))
                         {
                             demodState = DemodState::SYNC_UPDATE;
                             syncCount  = SYNCWORD_SAMPLES * 2;
@@ -276,7 +276,7 @@ bool M17Demodulator::update(float *samples, const size_t N)
                     if(packetSyncStatus == 1)
                     {
                         // Correlation has to coincide with a syncword!
-                        if(frameIndex == M17_SYNCWORD_SYMBOLS)
+                        if(frameIndex == M17_SYNCWORD_SYMBOLS*2)
                         {
                             float hd  = softHammingDistance(16, demodFrame->data(), SOFT_PACKET_SYNC_WORD.data());
 
@@ -299,7 +299,7 @@ bool M17Demodulator::update(float *samples, const size_t N)
                     else if(eotSyncStatus == 1)
                     {
                         // Correlation has to coincide with a syncword!
-                        if(frameIndex == M17_SYNCWORD_SYMBOLS)
+                        if(frameIndex == M17_SYNCWORD_SYMBOLS*2)
                         {
                             float hd  = softHammingDistance(16, demodFrame->data(), SOFT_EOT_SYNC_WORD.data());
 

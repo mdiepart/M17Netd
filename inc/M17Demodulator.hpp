@@ -51,8 +51,9 @@
 namespace M17
 {
 
-using m17frame_t   = std::array< uint8_t, 48 >; // Data type for a full M17 data frame, including sync word (packed bits)
-using m17syncw_t   = std::array< uint8_t, 2  >; // Data type for a sync word
+using m17frame_t   = std::array< uint16_t, 192*2 >; // Data type for a full M17 data frame, including sync word (soft bits)
+using m17syncw_t   = std::array< uint8_t, 2 >; // Data type for a sync word
+using m17ssyncw_t   = std::array< uint16_t, 16 >; // Data type for a sync word as soft bits
 
 class M17Demodulator
 {
@@ -79,12 +80,19 @@ public:
     void terminate();
 
     /**
-     * Returns the a frame decoded from the baseband signal.
+     * Returns the frame decoded from the baseband signal.
      *
      * @return reference to the internal data structure containing the last
      * decoded frame.
      */
     const m17frame_t& getFrame();
+
+    /**
+     * Returns the sync_word recognized at the beginning of the frame decoded from the baseband signal
+     *
+     * @return sync_word the sync_word recognized
+     */
+    const m17syncw_t getFrameSyncWord() const;
 
     /**
      * Demodulates data from the ADC and fills the idle frame.
@@ -108,9 +116,8 @@ private:
      * newFrame variable.
      *
      * @param sample: baseband sample.
-     * @return quantized symbol.
      */
-    int8_t updateFrame(const int16_t sample);
+    void updateFrame(const int16_t sample);
 
     /**
      * Reset the demodulator state.
@@ -137,6 +144,33 @@ private:
     static constexpr m17syncw_t PACKET_SYNC_WORD        = {0x75, 0xFF};  // Packet data sync word
     static constexpr m17syncw_t EOT_SYNC_WORD           = {0x55, 0x5D};  // End of transmission sync word
 
+
+    // LSF +3 +3 +3 +3 -3 -3 +3 -3 -> 01 01 01 01 11 11 01 11
+    // BERT -3 +3 -3 -3 +3 +3 +3 +3 -> 11 01 11 11 01 01 01 01
+    // STREAM -3 -3 -3 -3 +3 +3 -3 +3 -> 11 11 11 11 01 01 11 01
+    // packet +3 -3 +3 +3 -3 -3 -3 -3 -> 01 11 01 01 11 11 11 11
+    // EOT +3 +3 +3 +3 +3 +3 -3 +3
+    static constexpr m17ssyncw_t SOFT_LSF_SYNC_WORD     = { // LSF sync word
+                                                            0x0,    0xFFFF, 0x0,    0xFFFF, 0x0,    0xFFFF, 0x0,    0xFFFF,
+                                                            0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0,    0xFFFF, 0xFFFF, 0xFFFF,
+                                                          };
+    static constexpr m17ssyncw_t SOFT_BERT_SYNC_WORD    = { // BERT data sync word
+                                                            0xFFFF, 0xFFFF, 0x0,    0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+                                                            0x0,    0xFFFF, 0x0,    0xFFFF, 0x0,    0xFFFF, 0x0,    0xFFFF,
+                                                          };
+    static constexpr m17ssyncw_t SOFT_STREAM_SYNC_WORD  = { // Stream data sync word
+                                                            0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+                                                            0x0,    0xFFFF, 0x0,    0xFFFF, 0xFFFF, 0xFFFF, 0x0,    0xFFFF,
+                                                          };
+    static constexpr m17ssyncw_t SOFT_PACKET_SYNC_WORD  = { // Packet data sync word
+                                                           0x0,    0xFFFF, 0xFFFF, 0xFFFF, 0x0,    0xFFFF, 0x0,    0xFFFF,
+                                                           0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+                                                          };
+    static constexpr m17ssyncw_t SOFT_EOT_SYNC_WORD     = { // End of transmission sync word
+                                                            0x0,    0xFFFF, 0x0,    0xFFFF, 0x0,    0xFFFF, 0x0,    0xFFFF,
+                                                            0x0,    0xFFFF, 0x0,    0xFFFF, 0xFFFF, 0xFFFF, 0x0,    0xFFFF,
+                                                          };
+
     /**
      * Internal state of the demodulator.
      */
@@ -156,6 +190,7 @@ private:
     {
         NONE,
         LSF,
+        BERT,
         PACKET,
     };
 
@@ -178,6 +213,7 @@ private:
     uint32_t                       initCount;       ///< Downcounter for initialization
     uint32_t                       syncCount;       ///< Downcounter for resynchronization
     std::pair < int32_t, int32_t > outerDeviation;  ///< Deviation of outer symbols
+    std::pair < int32_t, int32_t > innerDeviation;  ///< Deviation of inner symbols
     float                          corrThreshold;   ///< Correlation threshold
     iirfilt_rrrf                   dcr;             ///< DC removal filter
     firfilt_rrrf                   rrcos_filt;      ///< Root-raised cosine filter for baseband signal

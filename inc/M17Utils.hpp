@@ -28,6 +28,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cmath>
 #include <array>
 #include <assert.h>
 
@@ -85,6 +86,17 @@ static inline uint8_t hammingDistance(const uint8_t x, const uint8_t y)
     return __builtin_popcount(x ^ y);
 }
 
+static inline float softHammingDistance(const size_t length, const uint16_t *a, const uint16_t *b)
+{
+    uint32_t accum = 0;
+
+    for(size_t i = 0; i < length; i++)
+    {
+        accum += std::abs(static_cast<int32_t>(a[i]) - b[i]);
+    }
+
+    return static_cast<float>(accum)/static_cast<float>(UINT16_MAX);
+}
 
 /**
  * Utility function allowing to set the value of a symbol on an array
@@ -198,4 +210,18 @@ class dc_remover
 
 
 };
+
+/**
+ * @brief Map a value from input range to output range.
+ * @param input Value to map
+ * @param inLow input range lower bound
+ * @param inHigh input range upper bound
+ * @param outLow output range lower bound
+ * @param outHigh output range higher bound
+ * @return input value mapped to the output range
+ */
+static inline float mapRange(float input, float inLow, float inHigh, float outLow, float outHigh)
+{
+    return outLow + ((input-inLow)/(inHigh-inLow))*(outHigh-outLow);
+}
 #endif // M17_UTILS_H

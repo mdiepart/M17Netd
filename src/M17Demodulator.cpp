@@ -100,6 +100,27 @@ const M17::m17frame_t& M17Demodulator::getFrame()
     return *readyFrame;
 }
 
+const m17syncw_t M17Demodulator::getFrameSyncWord() const
+{
+    switch(lastSyncWord)
+    {
+        case M17Demodulator::SyncWord::LSF:
+        {
+            return LSF_SYNC_WORD;
+        }
+        case M17Demodulator::SyncWord::PACKET:
+        {
+            return PACKET_SYNC_WORD;
+        }
+        case M17Demodulator::SyncWord::BERT:
+        {
+            return BERT_SYNC_WORD;
+        }
+        default:
+            return {0, 0};
+    }
+}
+
 bool M17Demodulator::isLocked() const
 {
     return locked;
@@ -173,6 +194,10 @@ bool M17Demodulator::update(float *samples, const size_t N)
                     }
 
                     outerDeviation = correlator.maxDeviation(samplingPoint);
+                    int32_t devSpacing = (outerDeviation.first-outerDeviation.second)/3;
+                    innerDeviation.first = outerDeviation.first-devSpacing; // Deviation for +1
+                    innerDeviation.second = outerDeviation.second + devSpacing; // deviation for -1
+
                     frameIndex     = 0;
 
                     // Quantize the syncword taking data from the correlator
@@ -188,10 +213,9 @@ bool M17Demodulator::update(float *samples, const size_t N)
 
                     if(lastSyncWord == SyncWord::PACKET)
                     {
-                        uint8_t hd  = hammingDistance( (*demodFrame)[0], PACKET_SYNC_WORD[0]);
-                                hd += hammingDistance( (*demodFrame)[1], PACKET_SYNC_WORD[1]);
+                        float hd  = softHammingDistance( 16, demodFrame->data(), SOFT_PACKET_SYNC_WORD.data());
 
-                        if(hd == 0)
+                        if(hd < 0.5)
                         {
                             locked     = true;
                             demodState = DemodState::LOCKED;
@@ -204,9 +228,8 @@ bool M17Demodulator::update(float *samples, const size_t N)
                         }
                     }else if(lastSyncWord == SyncWord::LSF)
                     {
-                        uint8_t hd  = hammingDistance( (*demodFrame)[0], LSF_SYNC_WORD[0]);
-                                hd += hammingDistance( (*demodFrame)[1], LSF_SYNC_WORD[1]);
-                        if(hd == 0)
+                        float hd  = softHammingDistance( 16, demodFrame->data(), SOFT_LSF_SYNC_WORD.data());
+                        if(hd < 0.5)
                         {
                             locked     = true;
                             demodState = DemodState::LOCKED;
@@ -255,14 +278,16 @@ bool M17Demodulator::update(float *samples, const size_t N)
                         // Correlation has to coincide with a syncword!
                         if(frameIndex == M17_SYNCWORD_SYMBOLS)
                         {
-                            uint8_t hd  = hammingDistance((*demodFrame)[0], PACKET_SYNC_WORD[0]);
-                                    hd += hammingDistance((*demodFrame)[1], PACKET_SYNC_WORD[1]);
+                            float hd  = softHammingDistance(16, demodFrame->data(), SOFT_PACKET_SYNC_WORD.data());
 
                             // Valid sync found: update deviation and sample
                             // point, then go back to locked state
                             if(hd <= 1)
                             {
                                 outerDeviation = correlator.maxDeviation(samplingPoint);
+                                int32_t devSpacing = (outerDeviation.first-outerDeviation.second)/3;
+                                innerDeviation.first = outerDeviation.first-devSpacing; // Deviation for +1
+                                innerDeviation.second = outerDeviation.second + devSpacing; // deviation for -1
                                 samplingPoint  = packetSync.samplingIndex();
                                 missedSyncs    = 0;
                                 demodState     = DemodState::LOCKED;
@@ -276,8 +301,7 @@ bool M17Demodulator::update(float *samples, const size_t N)
                         // Correlation has to coincide with a syncword!
                         if(frameIndex == M17_SYNCWORD_SYMBOLS)
                         {
-                            uint8_t hd  = hammingDistance((*demodFrame)[0], EOT_SYNC_WORD[0]);
-                                    hd += hammingDistance((*demodFrame)[1], EOT_SYNC_WORD[1]);
+                            float hd  = softHammingDistance(16, demodFrame->data(), SOFT_EOT_SYNC_WORD.data());
 
                             // Valid EOT sync found: unlock demodulator
                             if(hd <= 1)
@@ -324,28 +348,50 @@ bool M17Demodulator::update(float *samples, const size_t N)
     return newFrame;
 }
 
-int8_t M17Demodulator::updateFrame(int16_t sample)
+void M17Demodulator::updateFrame(int16_t sample)
 {
-    int8_t symbol;
+    /**
+     * Dibit    Symbol
+     * M   L
+     * 0   1    +3
+     * 0   0    +1
+     * 1   0    -1
+     * 1   1    -3
+     *
+     * We map the value of each bit with a linear interpolation as such:
+     *
+     */
 
-    if(sample > (2 * outerDeviation.first)/3)
+    if(sample >= outerDeviation.first)
     {
-        symbol = +3;
+        // Sample >= +3
+        demodFrame->at(frameIndex++) = 0x0000; // MSB
+        demodFrame->at(frameIndex++) = 0xFFFF; // LSB
     }
-    else if(sample < (2 * outerDeviation.second)/3)
+    else if(sample >= innerDeviation.first)
     {
-        symbol = -3;
+        // +3 > Sample >= +1
+        demodFrame->at(frameIndex++) = 0x0000; // MSB
+        demodFrame->at(frameIndex++) = mapRange(sample, innerDeviation.first, outerDeviation.first, 0, 0xFFFF); // LSB
     }
-    else if(sample > (outerDeviation.first + outerDeviation.second)/2)
+    else if(sample >= innerDeviation.second)
     {
-        symbol = +1;
+        // +1 > sample >= -1
+        demodFrame->at(frameIndex++) = mapRange(sample, innerDeviation.second, innerDeviation.first, 0xFFFF, 0); // MSB
+        demodFrame->at(frameIndex++) = 0x0000; // LSB
+    }
+    else if(sample > outerDeviation.second)
+    {
+        // -1 > sample > -3
+        demodFrame->at(frameIndex++) = 0xFFFF; // MSB
+        demodFrame->at(frameIndex++) = mapRange(sample, outerDeviation.second, innerDeviation.second, 0xFFFF, 0); // LSB
     }
     else
     {
-        symbol = -1;
+        // sample <= -3
+        demodFrame->at(frameIndex++) = 0xFFFF; // MSB
+        demodFrame->at(frameIndex++) = 0xFFFF; // LSB
     }
-
-    setSymbol(*demodFrame, frameIndex++, symbol);
 
 #if M17DEMOD_DEBUG_OUT
     float tmp = total_cnt;
@@ -354,15 +400,13 @@ int8_t M17Demodulator::updateFrame(int16_t sample)
     samp_pts.write(reinterpret_cast<const char*>(&tmp2), 4);
 #endif
 
-    if(frameIndex >= M17_FRAME_SYMBOLS)
+    if(frameIndex >= 2*M17_FRAME_SYMBOLS)
     {
         std::swap(readyFrame, demodFrame);
         frameIndex = 0;
         newFrame   = true;
         //cout << "M17Demodulator: completed a frame" << endl;
     }
-
-    return symbol;
 }
 
 void M17Demodulator::reset()

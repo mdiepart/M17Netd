@@ -69,7 +69,7 @@ m17rx& m17rx::operator=(m17rx &&origin)
     return *this;
 }
 
-int m17rx::add_frame(array<uint16_t, 2*SYM_PER_FRA> frame)
+int m17rx::add_frame(uint16_t sync_word, array<uint16_t, 2*SYM_PER_FRA> frame)
 {
     // Check if the packet is ready to receive a frame
     if(status == packet_status::COMPLETE)
@@ -85,18 +85,7 @@ int m17rx::add_frame(array<uint16_t, 2*SYM_PER_FRA> frame)
 
     array<uint16_t, 2*SYM_PER_PLD> deinterleaved;
 
-    uint16_t sync_word = 0;
     uint16_t *payload = &(frame[16]);
-
-    // Check the first 16 bits for a sync word
-    for(size_t i = 0; i < 16; i++)
-    {
-        // If bit is closer to 1
-        if(frame[i] >= 0x7FFF)
-        {
-            sync_word |= (1<<(15-i));
-        }
-    }
 
     // De-randomize the last 368 bits
     randomize_soft_bits(payload);
@@ -111,15 +100,6 @@ int m17rx::add_frame(array<uint16_t, 2*SYM_PER_FRA> frame)
                                // argument to viterbi decoding functions needed to be one
                                // byte longer than the actual output data, so this buffer
                                // is 31 bytes for a max length of 30
-
-    if( __builtin_popcount(sync_word ^ SYNC_LSF) <= 1 )
-    {
-        sync_word = SYNC_LSF;
-    }
-    else if (__builtin_popcount(sync_word ^ SYNC_PKT) <= 1)
-    {
-        sync_word = SYNC_PKT;
-    }
 
     switch(sync_word)
     {

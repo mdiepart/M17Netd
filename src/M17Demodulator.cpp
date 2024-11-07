@@ -291,6 +291,7 @@ bool M17Demodulator::update(float *samples, const size_t N)
                                 samplingPoint  = packetSync.samplingIndex();
                                 missedSyncs    = 0;
                                 demodState     = DemodState::LOCKED;
+                                lastSyncWord   = SyncWord::PACKET;
                                 //cout << "M17 Demodulator: Received packet sync: Sync Update -> Locked" << endl;
                                 break;
                             }
@@ -309,6 +310,7 @@ bool M17Demodulator::update(float *samples, const size_t N)
                                 missedSyncs = 0;
                                 demodState     = DemodState::UNLOCKED;
                                 locked = false;
+                                lastSyncWord = SyncWord::NONE;
                                 cout << "M17Demodulator: Received EOT sync: -> Unlocked" << endl;
                                 break;
                             }

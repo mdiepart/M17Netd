@@ -176,7 +176,6 @@ bool M17Demodulator::update(float *samples, const size_t N)
                     if(lsfSyncStatus == 1)
                     {
                         demodState = DemodState::SYNCED;
-                        lastSyncWord = SyncWord::LSF;
                     }
                 }
                     break;
@@ -184,15 +183,7 @@ bool M17Demodulator::update(float *samples, const size_t N)
                 case DemodState::SYNCED:
                 {
                     // Set sampling point and deviation, zero frame symbol count
-                    if(lastSyncWord == SyncWord::PACKET)
-                    {
-                        samplingPoint = packetSync.samplingIndex();
-                    }
-                    else if(lastSyncWord == SyncWord::LSF)
-                    {
-                        samplingPoint = lsfSync.samplingIndex();
-                    }
-
+                    samplingPoint = lsfSync.samplingIndex();
                     outerDeviation = correlator.maxDeviation(samplingPoint);
                     int32_t devSpacing = (outerDeviation.first-outerDeviation.second)/3;
                     innerDeviation.first = outerDeviation.first-devSpacing; // Deviation for +1
@@ -211,35 +202,18 @@ bool M17Demodulator::update(float *samples, const size_t N)
                             updateFrame(val);
                     }
 
-                    if(lastSyncWord == SyncWord::PACKET)
+                    float hd  = softHammingDistance( 16, demodFrame->data(), SOFT_LSF_SYNC_WORD.data());
+                    if(hd <= 1)
                     {
-                        float hd  = softHammingDistance( 16, demodFrame->data(), SOFT_PACKET_SYNC_WORD.data());
-
-                        if(hd < 0.5)
-                        {
-                            locked     = true;
-                            demodState = DemodState::LOCKED;
-                            //cout << "M17Demodulator: Received packet sync: Synced -> Locked" << endl;
-                        }
-                        else
-                        {
-                            demodState = DemodState::UNLOCKED;
-                            //cout << "M17Demodulator: PACKET sync not recognized. hd=" << static_cast<uint16_t>(hd) << ", Synced -> Unlocked" << endl;
-                        }
-                    }else if(lastSyncWord == SyncWord::LSF)
+                        locked     = true;
+                        demodState = DemodState::LOCKED;
+                        lastSyncWord = SyncWord::LSF;
+                        //cout << "M17Demodulator: Received LSF sync: Synced -> Locked" << endl;
+                    }
+                    else
                     {
-                        float hd  = softHammingDistance( 16, demodFrame->data(), SOFT_LSF_SYNC_WORD.data());
-                        if(hd < 0.5)
-                        {
-                            locked     = true;
-                            demodState = DemodState::LOCKED;
-                            //cout << "M17Demodulator: Received LSF sync: Synced -> Locked" << endl;
-                        }
-                        else
-                        {
-                            demodState = DemodState::UNLOCKED;
-                            //cout << "M17Demodulator: LSF sync not recognized. hd=" << static_cast<uint16_t>(hd) << ", Synced -> Unlocked" << endl;
-                        }
+                        demodState = DemodState::UNLOCKED;
+                        //cout << "M17Demodulator: LSF sync not recognized. hd=" << static_cast<uint16_t>(hd) << ", Synced -> Unlocked" << endl;
                     }
                 }
                     break;
@@ -269,14 +243,14 @@ bool M17Demodulator::update(float *samples, const size_t N)
                     if(sampleIndex == samplingPoint)
                         updateFrame(sample);
 
-                    // Find the new correlation peak
-                    int8_t  packetSyncStatus = packetSync.update(correlator, syncThresh, -syncThresh);
-                    int8_t  eotSyncStatus = EOTSync.update(correlator, 0.87*syncThresh, -0.87*syncThresh);
-
-                    if(packetSyncStatus == 1)
+                    // Correlation has to coincide with a syncword!
+                    if(frameIndex == M17_SYNCWORD_SYMBOLS*2)
                     {
-                        // Correlation has to coincide with a syncword!
-                        if(frameIndex == M17_SYNCWORD_SYMBOLS*2)
+                        // Find the new correlation peak
+                        int8_t  packetSyncStatus = packetSync.update(correlator, syncThresh, -syncThresh);
+                        int8_t  eotSyncStatus = EOTSync.update(correlator, 0.87*syncThresh, -0.87*syncThresh);
+
+                        if(packetSyncStatus == 1)
                         {
                             float hd  = softHammingDistance(16, demodFrame->data(), SOFT_PACKET_SYNC_WORD.data());
 
@@ -296,11 +270,7 @@ bool M17Demodulator::update(float *samples, const size_t N)
                                 break;
                             }
                         }
-                    }
-                    else if(eotSyncStatus == 1)
-                    {
-                        // Correlation has to coincide with a syncword!
-                        if(frameIndex == M17_SYNCWORD_SYMBOLS*2)
+                        else if(eotSyncStatus == 1)
                         {
                             float hd  = softHammingDistance(16, demodFrame->data(), SOFT_EOT_SYNC_WORD.data());
 

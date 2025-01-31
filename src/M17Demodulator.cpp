@@ -77,6 +77,15 @@ void M17Demodulator::init()
     post_dcr.open("./post_drc.raw", ios_base::binary | ios_base::trunc);
     post_rrcos.open("./post_rrcos.raw", ios_base::binary | ios_base::trunc);
     samp_pts.open("./sampling_points.pts", ios_base::binary | ios_base::trunc);
+    corr_thresh.open("./correlation_threshold.pts", ios_base::binary | ios_base::trunc);
+    lsf_corr.open("./lsf_correlation.pts", ios_base::binary | ios_base::trunc);
+    pkt_corr.open("./pkt_correlation.pts", ios_base::binary | ios_base::trunc);
+    eot_corr.open("./eot_correlation.pts", ios_base::binary | ios_base::trunc);
+    sync_thresh.open("./sync_thresh.pts", ios_base::binary | ios_base::trunc);
+    dev_p3.open("./dev_p3.pts", ios_base::binary | ios_base::trunc);
+    dev_p1.open("./dev_p1.pts", ios_base::binary | ios_base::trunc);
+    dev_n1.open("./dev_n1.pts", ios_base::binary | ios_base::trunc);
+    dev_n3.open("./dev_n3.pts", ios_base::binary | ios_base::trunc);
 #endif
 }
 
@@ -90,6 +99,15 @@ void M17Demodulator::terminate()
     post_dcr.close();
     post_rrcos.close();
     samp_pts.close();
+    corr_thresh.close();
+    lsf_corr.close();
+    pkt_corr.close();
+    eot_corr.close();
+    sync_thresh.close();
+    dev_p3.close();
+    dev_p1.close();
+    dev_n1.close();
+    dev_n3.close();
 #endif
 }
 
@@ -171,6 +189,17 @@ bool M17Demodulator::update(float *samples, const size_t N)
                 {
                     int8_t  lsfSyncStatus = lsfSync.update(correlator, syncThresh, -syncThresh);
 
+#if M17DEMOD_DEBUG_OUT
+                    // Write corr value to file
+                    float corr = static_cast<float>(lsfSync.getLastCorr())/100000;
+                    float st = static_cast<float>(syncThresh)/10000;
+                    float tmp = total_cnt;
+                    lsf_corr.write(reinterpret_cast<const char*>(&tmp), 4);
+                    lsf_corr.write(reinterpret_cast<const char*>(&corr), 4);
+                    sync_thresh.write(reinterpret_cast<const char*>(&tmp), 4);
+                    sync_thresh.write(reinterpret_cast<const char*>(&st), 4);
+#endif
+
                     if(lsfSyncStatus == 1)
                     {
                         demodState = DemodState::SYNCED;
@@ -189,6 +218,11 @@ bool M17Demodulator::update(float *samples, const size_t N)
 
                     frameIndex     = 0;
 
+#if M17DEMOD_DEBUG_OUT
+                    size_t tmp = total_cnt; // Save current total_cnt
+                    total_cnt -= (SYNCWORD_SAMPLES + shift - SAMPLES_PER_SYMBOL);
+#endif
+
                     // Quantize the syncword taking data from the correlator
                     // memory.
                     for(size_t i = 0; i < SYNCWORD_SAMPLES; i++)
@@ -198,7 +232,15 @@ bool M17Demodulator::update(float *samples, const size_t N)
 
                         if((pos % SAMPLES_PER_SYMBOL) == samplingPoint)
                             updateFrame(val);
+
+#if M17DEMOD_DEBUG_OUT
+                        total_cnt += SAMPLES_PER_SYMBOL;
+#endif
                     }
+
+#if M17DEMOD_DEBUG_OUT
+                    total_cnt = tmp;
+#endif
 
                     float hd  = softHammingDistance( 16, demodFrame->data(), SOFT_LSF_SYNC_WORD.data());
                     if(hd <= 1)
@@ -240,6 +282,17 @@ bool M17Demodulator::update(float *samples, const size_t N)
                     // Keep filling the ongoing frame!
                     if(sampleIndex == samplingPoint)
                         updateFrame(sample);
+
+#if M17DEMOD_DEBUG_OUT
+                    // Write corr value to file
+                    float pkt = static_cast<float>(packetSync.getLastCorr())/100000;
+                    float eot = static_cast<float>(EOTSync.getLastCorr())/100000;
+                    float tmp = total_cnt;
+                    pkt_corr.write(reinterpret_cast<const char*>(&tmp), 4);
+                    pkt_corr.write(reinterpret_cast<const char*>(&pkt), 4);
+                    eot_corr.write(reinterpret_cast<const char*>(&tmp), 4);
+                    eot_corr.write(reinterpret_cast<const char*>(&eot), 4);
+#endif
 
                     // Correlation has to coincide with a syncword!
                     if(frameIndex == M17_SYNCWORD_SYMBOLS*2)
@@ -365,9 +418,22 @@ void M17Demodulator::updateFrame(int16_t sample)
 
 #if M17DEMOD_DEBUG_OUT
     float tmp = total_cnt;
-    float tmp2 = sample;
+    float tmp2 = static_cast<float>(sample)/500;
+    float p3 = static_cast<float>(outerDeviation.first)/500,
+          p1 = static_cast<float>(innerDeviation.first)/500,
+          n1 = static_cast<float>(innerDeviation.second)/500,
+          n3 = static_cast<float>(outerDeviation.second)/500;
+
     samp_pts.write(reinterpret_cast<const char*>(&tmp), 4);
     samp_pts.write(reinterpret_cast<const char*>(&tmp2), 4);
+    dev_p3.write(reinterpret_cast<const char*>(&tmp), 4);
+    dev_p3.write(reinterpret_cast<const char*>(&p3), 4);
+    dev_p1.write(reinterpret_cast<const char*>(&tmp), 4);
+    dev_p1.write(reinterpret_cast<const char*>(&p1), 4);
+    dev_n1.write(reinterpret_cast<const char*>(&tmp), 4);
+    dev_n1.write(reinterpret_cast<const char*>(&n1), 4);
+    dev_n3.write(reinterpret_cast<const char*>(&tmp), 4);
+    dev_n3.write(reinterpret_cast<const char*>(&n3), 4);
 #endif
 
     if(frameIndex >= 2*M17_FRAME_SYMBOLS)

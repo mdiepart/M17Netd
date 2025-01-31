@@ -223,6 +223,15 @@ private:
     ofstream post_dcr;
     ofstream post_rrcos;
     ofstream samp_pts;
+    ofstream corr_thresh;
+    ofstream lsf_corr;
+    ofstream pkt_corr;
+    ofstream eot_corr;
+    ofstream sync_thresh;
+    ofstream dev_p3;
+    ofstream dev_p1;
+    ofstream dev_n1;
+    ofstream dev_n3;
 #endif
 
 };

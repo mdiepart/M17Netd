@@ -202,6 +202,7 @@ bool M17Demodulator::update(float *samples, const size_t N)
 
                     if(lsfSyncStatus == 1)
                     {
+                        //cout << "Found LSF. Unlocked -> Synced" << endl;
                         demodState = DemodState::SYNCED;
                     }
                 }
@@ -248,12 +249,12 @@ bool M17Demodulator::update(float *samples, const size_t N)
                         locked     = true;
                         demodState = DemodState::LOCKED;
                         lastSyncWord = SyncWord::LSF;
-                        //cout << "M17Demodulator: Received LSF sync: Synced -> Locked" << endl;
+                        cout << "M17Demodulator: Received LSF sync with hd=" << hd << ": Synced -> Locked" << endl;
                     }
                     else
                     {
                         demodState = DemodState::UNLOCKED;
-                        //cout << "M17Demodulator: LSF sync not recognized. hd=" << static_cast<uint16_t>(hd) << ", Synced -> Unlocked" << endl;
+                        //cout << "M17Demodulator: LSF sync not recognized. hd=" << hd << ", Synced -> Unlocked" << endl;
                     }
                 }
                     break;
@@ -304,7 +305,7 @@ bool M17Demodulator::update(float *samples, const size_t N)
                         if(packetSyncStatus == 1)
                         {
                             float hd  = softHammingDistance(16, demodFrame->data(), SOFT_PACKET_SYNC_WORD.data());
-
+                            cout << "PacketSyncStatus = 1, hd=" << hd << endl;
                             // Valid sync found: update deviation and sample
                             // point, then go back to locked state
                             if(hd <= 1)

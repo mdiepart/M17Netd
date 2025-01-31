@@ -190,7 +190,7 @@ vector<float> m17tx::get_baseband_samples(size_t n)
             // Reload next sample
             for(size_t j = 180; j >= N; j -= N)
             {
-                // Shift non-zero elements
+                // Shift only non-zero elements
                 filt_buff[j] = filt_buff[j-N];
             }
 

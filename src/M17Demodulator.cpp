@@ -153,8 +153,7 @@ bool M17Demodulator::update(float *samples, const size_t N)
 
             // Update correlator and sample filter for correlation thresholds
             correlator.sample(sample);
-            corrThreshold = sampleFilter(std::abs(sample));
-            int32_t syncThresh = static_cast< int32_t >(corrThreshold * 32.0f);
+            int32_t syncThresh = 280000;
 
             switch(demodState)
             {
@@ -165,7 +164,6 @@ bool M17Demodulator::update(float *samples, const size_t N)
                         demodState = DemodState::UNLOCKED;
                         cout << "M17 Demodulator: Unlocked" << endl;
                     }
-
                 }
                     break;
 
@@ -393,7 +391,3 @@ void M17Demodulator::reset()
     iirfilt_rrrf_reset(dcr);
     firfilt_rrrf_reset(rrcos_filt);
 }
-
-
-constexpr std::array < float, 3 > M17Demodulator::sfNum;
-constexpr std::array < float, 3 > M17Demodulator::sfDen;

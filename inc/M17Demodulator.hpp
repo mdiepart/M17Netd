@@ -36,7 +36,6 @@
 #include <Correlator.hpp>
 #include <Synchronizer.hpp>
 #include <M17Utils.hpp>
-#include <iir.hpp>
 #include <liquid/liquid.h>
 
 /**
@@ -194,13 +193,6 @@ private:
         PACKET,
     };
 
-    /**
-     * Cofficients of the sample filter.
-     * IIR filter ofthe 2nd order. Low-pass with a cut-off of 50 Hz
-     */
-    static constexpr std::array < float, 3 > sfNum = {2.67111819e-06f, 5.34223638e-06f, 2.67111819e-06f};
-    static constexpr std::array < float, 3 > sfDen = {1.0f,           -1.99537201f,     0.99538269f};
-
     DemodState                     demodState;      ///< Demodulator state
     std::unique_ptr<m17frame_t >   demodFrame;      ///< Frame being demodulated.
     std::unique_ptr<m17frame_t >   readyFrame;      ///< Fully demodulated frame to be returned.
@@ -208,7 +200,6 @@ private:
     bool                           newFrame;        ///< A new frame has been fully decoded.
     uint16_t                       frameIndex;      ///< Index for filling the raw frame.
     uint32_t                       sampleIndex;     ///< Sample index, from 0 to (SAMPLES_PER_SYMBOL - 1)
-    uint32_t                       samplingPoint;   ///< Symbol sampling point
     uint8_t                        missedSyncs;     ///< Counter of missed synchronizations
     uint32_t                       initCount;       ///< Downcounter for initialization
     uint32_t                       syncCount;       ///< Downcounter for resynchronization

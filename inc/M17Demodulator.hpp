@@ -36,7 +36,6 @@
 #include <Correlator.hpp>
 #include <Synchronizer.hpp>
 #include <M17Utils.hpp>
-#include <iir.hpp>
 #include <liquid/liquid.h>
 
 /**
@@ -194,13 +193,6 @@ private:
         PACKET,
     };
 
-    /**
-     * Cofficients of the sample filter.
-     * IIR filter ofthe 2nd order. Low-pass with a cut-off of 50 Hz
-     */
-    static constexpr std::array < float, 3 > sfNum = {2.67111819e-06f, 5.34223638e-06f, 2.67111819e-06f};
-    static constexpr std::array < float, 3 > sfDen = {1.0f,           -1.99537201f,     0.99538269f};
-
     DemodState                     demodState;      ///< Demodulator state
     std::unique_ptr<m17frame_t >   demodFrame;      ///< Frame being demodulated.
     std::unique_ptr<m17frame_t >   readyFrame;      ///< Fully demodulated frame to be returned.
@@ -208,22 +200,20 @@ private:
     bool                           newFrame;        ///< A new frame has been fully decoded.
     uint16_t                       frameIndex;      ///< Index for filling the raw frame.
     uint32_t                       sampleIndex;     ///< Sample index, from 0 to (SAMPLES_PER_SYMBOL - 1)
-    uint32_t                       samplingPoint;   ///< Symbol sampling point
     uint8_t                        missedSyncs;     ///< Counter of missed synchronizations
     uint32_t                       initCount;       ///< Downcounter for initialization
     uint32_t                       syncCount;       ///< Downcounter for resynchronization
     std::pair < int32_t, int32_t > outerDeviation;  ///< Deviation of outer symbols
     std::pair < int32_t, int32_t > innerDeviation;  ///< Deviation of inner symbols
-    float                          corrThreshold;   ///< Correlation threshold
     iirfilt_rrrf                   dcr;             ///< DC removal filter
     firfilt_rrrf                   rrcos_filt;      ///< Root-raised cosine filter for baseband signal
     SyncWord                       lastSyncWord;
 
     Correlator   < M17_SYNCWORD_SYMBOLS, SAMPLES_PER_SYMBOL > correlator;
-    Synchronizer < M17_SYNCWORD_SYMBOLS, SAMPLES_PER_SYMBOL > lsfSync{{ +3, +3, +3, +3, -3, -3, +3, -3 }};
+    //Synchronizer < M17_SYNCWORD_SYMBOLS, SAMPLES_PER_SYMBOL > lsfSync   {{ +3, +3, +3, +3, -3, -3, +3, -3 }};
+    Synchronizer < M17_SYNCWORD_SYMBOLS, SAMPLES_PER_SYMBOL > lsfSync   {{ +3, +3, +3, +3, -3, -3, +3, -3 }};
     Synchronizer < M17_SYNCWORD_SYMBOLS, SAMPLES_PER_SYMBOL > packetSync{{ +3, -3, +3, +3, -3, -3, -3, -3 }};
-    Synchronizer < M17_SYNCWORD_SYMBOLS, SAMPLES_PER_SYMBOL > EOTSync{{ +3, +3, +3, +3, +3, +3, -3, +3 }};
-    Iir          < 3 >                                        sampleFilter{sfNum, sfDen};
+    Synchronizer < M17_SYNCWORD_SYMBOLS, SAMPLES_PER_SYMBOL > EOTSync   {{ +3, +3, +3, +3, +3, +3, -3, +3 }};
 
 #if M17DEMOD_DEBUG_OUT
     uint32_t                       total_cnt;
@@ -232,6 +222,15 @@ private:
     ofstream post_dcr;
     ofstream post_rrcos;
     ofstream samp_pts;
+    ofstream corr_thresh;
+    ofstream lsf_corr;
+    ofstream pkt_corr;
+    ofstream eot_corr;
+    ofstream sync_thresh;
+    ofstream dev_p3;
+    ofstream dev_p1;
+    ofstream dev_n1;
+    ofstream dev_n3;
 #endif
 
 };

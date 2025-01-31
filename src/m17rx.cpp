@@ -110,6 +110,8 @@ int m17rx::add_frame(uint16_t sync_word, array<uint16_t, 2*SYM_PER_FRA> frame)
                 cerr << "m17rx: trying to add an LSF frame to a non-empty packet." << endl;
                 return -1;
             }
+
+            cout << "Adding LSF frame to packet" << endl;
             status = packet_status::LSF_RECEIVED;
             // Decode 368 type-3 soft bits to type-1 bits, stored in the lsf array
             corrected_errors += viterbi_decode_punctured(buffer.data(), deinterleaved.data(),

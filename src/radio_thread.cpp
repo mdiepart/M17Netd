@@ -48,7 +48,7 @@ using namespace std;
 
 
 void radio_simplex::operator()(atomic_bool &running, const config &cfg,
-                    ConsumerProducerQueue<shared_ptr<m17tx>> &to_radio,
+                    ConsumerProducerQueue<shared_ptr<m17tx_pkt>> &to_radio,
                     ConsumerProducerQueue<shared_ptr<m17rx>> &from_radio)
 {
     radio_thread_cfg radio_cfg;
@@ -69,7 +69,7 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
     fdem = freqdem_create(radio_cfg.k);
     // For now, this threads gets packets from the network and display them
 
-    shared_ptr<m17tx> packet;
+    shared_ptr<m17tx_pkt> packet;
 
     // Allocations
     // Allocate the RX samples with fftw so that it is aligned for SIMD

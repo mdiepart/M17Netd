@@ -23,27 +23,51 @@
 #include <vector>
 #include <array>
 #include <m17.h>
+#include <memory>
 
 using namespace std;
 
 class m17tx
 {
-private:
+protected:
     static constexpr size_t N = 20; // Interpolation factor
     static constexpr size_t nb_taps = 161; // Taps in RRC filter
 
     vector<float> *symbols;
     static const array<float, nb_taps> taps;
     size_t bb_samples;
-    size_t bb_idx;
+    size_t sym_idx;
     array<float, (nb_taps+N)> filt_buff;
-    size_t filt_offset;
+    size_t filt_offset; // Offset within the filt_buff array
 
 public:
-    m17tx(const string_view &src, const string_view &dst, const shared_ptr<vector<uint8_t>> ip_pkt);
+    m17tx();
     ~m17tx();
 
     vector<float> get_baseband_samples(size_t n);
     vector<float> get_symbols() const;
     size_t baseband_samples_left() const;
+};
+
+
+class m17tx_pkt : public m17tx
+{
+public:
+    m17tx_pkt(const string_view &src, const string_view &dst, const shared_ptr<vector<uint8_t>> ip_pkt);
+};
+
+class m17tx_bert: public m17tx
+{
+protected:
+    uint16_t bert_state;
+    bool eot_sent;
+
+    uint8_t bert_iter();
+    void generate_frame();
+    void generate_eot();
+
+public:
+    m17tx_bert();
+    vector<float> get_baseband_samples(size_t n);
+    void terminate_stream();
 };

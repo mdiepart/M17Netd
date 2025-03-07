@@ -97,10 +97,12 @@ public:
      * Demodulates data from the ADC and fills the idle frame.
      * Everytime this function is called a whole ADC buffer is consumed.
      *
-     * @param invertPhase: invert the phase of the baseband signal before decoding.
-     * @return true if a new frame has been fully decoded.
+     * @param samples: Float array containing the samples to demodulate
+     * @param N: Number of samples in the *sample array
+     * 
+     * @return 1 if a new frame has been fully decoded, -1 if EOT was detected, 0 otherwise
      */
-    bool update(float *samples, const size_t N);
+    int update(float *samples, const size_t N);
 
     /**
      * @return true if a demodulator is locked on an M17 stream.
@@ -191,6 +193,7 @@ private:
         LSF,
         BERT,
         PACKET,
+        EOT,
     };
 
     DemodState                     demodState;      ///< Demodulator state
@@ -210,7 +213,6 @@ private:
     SyncWord                       lastSyncWord;
 
     Correlator   < M17_SYNCWORD_SYMBOLS, SAMPLES_PER_SYMBOL > correlator;
-    //Synchronizer < M17_SYNCWORD_SYMBOLS, SAMPLES_PER_SYMBOL > lsfSync   {{ +3, +3, +3, +3, -3, -3, +3, -3 }};
     Synchronizer < M17_SYNCWORD_SYMBOLS, SAMPLES_PER_SYMBOL > lsfSync   {{ +3, +3, +3, +3, -3, -3, +3, -3 }};
     Synchronizer < M17_SYNCWORD_SYMBOLS, SAMPLES_PER_SYMBOL > packetSync{{ +3, -3, +3, +3, -3, -3, -3, -3 }};
     Synchronizer < M17_SYNCWORD_SYMBOLS, SAMPLES_PER_SYMBOL > EOTSync   {{ +3, +3, +3, +3, +3, +3, -3, +3 }};

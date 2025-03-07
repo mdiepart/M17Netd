@@ -94,15 +94,48 @@ class m17rx
      */
     vector<uint8_t> get_payload() const;
 
+    /**
+     * Check if the current superframe is in BERT mode.
+     *
+     * @return true if the superframe is in BERT mode
+     *         false otherwise
+     */
+    bool is_bert() const;
+
+    /**
+     * Returns the total number of bits received in BERT mode once synchronized
+     *
+     * @return number of bits received in BERT mode
+     */
+    size_t get_bert_totcnt() const;
+
+    /**
+     * Returns the number of error bits received in BERT mode once synchronized
+     *
+     * @return number of error bits received in BERT mode
+     */
+    size_t get_bert_errcnt() const;
+
+    /**
+     * Returns the sync status of the BERT RX register. This is only valid if the
+     * superframe is in bert mode.
+     *
+     * @return true if the BERT receiver register is synchronized with the incoming stream
+     *         false if the BERT receiver register is not synchronized with the incoming stream
+     */
+    bool is_bert_synced() const;
+
     private:
     static constexpr uint16_t SYNC_LSF = 0x55F7; /** LSF frame sync word */
     static constexpr uint16_t SYNC_PKT = 0x75FF; /** PKT frame sync word */
+    static constexpr uint16_t SYNC_BER = 0xDF55; /** BERT frame sync word */
 
     enum class packet_status
     {
         EMPTY = 0,      /** Packet is empty */
         LSF_RECEIVED,   /** The LSF frame have been received and PKT frames may be added */
-        COMPLETE,       /** The last PKT frame have been received */
+        PKT_COMPLETE,   /** The last PKT frame have been received */
+        BERT,           /** Bit Error Rate Testing mode */
         ERROR           /** An error occured (such as a skipped frame number) */
     };
 
@@ -111,4 +144,12 @@ class m17rx
     vector<uint8_t>     *pkt_data;              /** raw type-1 bits from the successive packet frames */
     uint32_t            corrected_errors;       /** Number of corrected bits along the full frame */
     int                 received_pkt_frames;    /** Number of packet frames received */
+
+    // BERT variables
+    static constexpr unsigned bert_lockcnt = 18;    /** Number of correct bits to receive to lock BERT sync */
+    uint16_t                  bert_lfsr;            /** LFSR used to test BER */
+    size_t                    bert_errcnt;          /** BERT errors count */
+    size_t                    bert_totcnt;          /** BERT total number of bits received */
+    size_t                    bert_synccnt;         /** BERT Synchronization counter */
+    unsigned __int128         bert_hist;            /** BERT history, a bit set to one means that it was incorrect */
 };

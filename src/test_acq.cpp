@@ -22,8 +22,8 @@
 #include <csignal>
 #include <fstream>
 #include <cstring>
+
 #include "sdrnode.h"
-#include <alsa/asoundlib.h>
 
 using namespace std;
 
@@ -51,23 +51,25 @@ int main(int argc, char *argv[])
     // Parse first argument (number of samples to acquire)
     if(argc == 2 && strcmp(argv[1], "help") == 0)
     {
-        cout << "Usage: " << argv[0] << " rx_frequency ppm_correction number_of_samples output_file\n"
+        cout << "Usage: " << argv[0] << " rx_frequency ppm_correction rx_gain number_of_samples output_file\n"
              << "\trx_frequency        is the frequency at which to do the acquisition (in Hz).\n"
              << "\tppm_correction      is the correction to apply to the frequency (in ppm, as an integer).\n"
+             << "\trx_gain             is the LNA gain (must be one of {0, -6, -12, -24, -36, -48})\n."
              << "\tnumber_of_samples   is the number of samples to acquire.\n"
              << "\toutput_file         is the file to which to write the acquired I/Q data (as float pairs, in binary)."
              << endl;
         return EXIT_SUCCESS;
-    }else if(argc != 5)
+    }else if(argc != 6)
     {
         cerr << "Incorrect usage, type \"" << argv[0] << " help\" to learn more." << endl;
         return EXIT_FAILURE;
     }
-
-    size_t acq_size = 0;
-    ofstream iq_out_file;
-    int ppm = 0;
+    
     unsigned long rx_frequency;
+    int ppm;
+    int rx_gain;
+    size_t acq_size;
+    ofstream iq_out_file;
 
     // Parse RX frequency
     try
@@ -91,14 +93,51 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    // Parse number of samples
+    // Parse RX gain
     try
     {
-        acq_size = stoul(argv[3]);
+        rx_gain = stoi(argv[3]);
     }
     catch(const std::exception& e)
     {
-        cerr << "Invalid number of samples: \"" << argv[1] << "\"." << endl;
+        cerr << "Invalid rx_gain: \"" << argv[3] << "\"." << endl;
+        return EXIT_FAILURE;
+    }
+    sx1255_drv::lna_gain lna_rx_gain;
+
+    switch(rx_gain)
+    {
+        case 0:
+            lna_rx_gain = sx1255_drv::LNA_GAIN_MAX;
+            break;
+        case -6:
+            lna_rx_gain = sx1255_drv::LNA_GAIN_MAX_min6;
+            break;
+        case -12:
+            lna_rx_gain = sx1255_drv::LNA_GAIN_MAX_min12;
+            break;
+        case -24:
+            lna_rx_gain = sx1255_drv::LNA_GAIN_MAX_min24;
+            break;
+        case -36:
+            lna_rx_gain = sx1255_drv::LNA_GAIN_MAX_min36;
+            break;
+        case -48:
+            lna_rx_gain = sx1255_drv::LNA_GAIN_MAX_min48;
+            break;
+        default:
+            cerr << "rx_gain of " << rx_gain << " is not in not one of {0, -6, -12, -24, -36, -48}." << endl;
+            return EXIT_FAILURE;
+    }
+
+    // Parse number of samples
+    try
+    {
+        acq_size = stoul(argv[4]);
+    }
+    catch(const std::exception& e)
+    {
+        cerr << "Invalid number of samples: \"" << argv[4] << "\"." << endl;
         return EXIT_FAILURE;
     }
 

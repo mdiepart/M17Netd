@@ -59,7 +59,8 @@ add_executable(test_demod EXCLUDE_FROM_ALL src/test_demod.cpp src/M17Demodulator
 add_executable(test_acq EXCLUDE_FROM_ALL src/test_acq.cpp src/sdrnode.cpp src/sx1255.cpp src/spi.cpp)
 add_executable(test_bert_rx EXCLUDE_FROM_ALL src/test_bert_rx.cpp src/sdrnode.cpp src/sx1255.cpp src/spi.cpp src/M17Demodulator.cpp src/m17rx.cpp)
 add_executable(test_bert_tx EXCLUDE_FROM_ALL src/test_bert_tx.cpp src/sdrnode.cpp src/sx1255.cpp src/spi.cpp src/m17tx.cpp)
-add_dependencies(tests test_tone test_demod test_acq test_bert_rx test_bert_tx)
+add_executable(test_bert_encode_decode EXCLUDE_FROM_ALL src/test_bert_encode_decode.cpp)
+add_dependencies(tests test_tone test_demod test_acq test_bert_rx test_bert_tx test_bert_encode_decode)
 
 # Include directories
 target_include_directories(M17Netd PUBLIC
@@ -82,6 +83,9 @@ target_include_directories(test_bert_rx PUBLIC
 
 target_include_directories(test_bert_tx PUBLIC
 				${PROJECT_SOURCE_DIR}/inc)
+
+target_include_directories(test_bert_encode_decode PUBLIC
+				${PROJECT_SOURCE_DIR}/inc)			
 
 
 # Link libraries
@@ -117,6 +121,10 @@ target_link_libraries(test_bert_tx PUBLIC
 				m17-static
 				${liquid_LIB}
 				${ALSA_LIBRARIES}
+)
+
+target_link_libraries(test_bert_encode_decode PUBLIC
+				m17-static
 )
 
 # Comilation options
@@ -161,6 +169,16 @@ $<$<CONFIG:Release>:
 )
 
 target_compile_options(test_bert_tx PRIVATE
+-Wall
+$<$<CONFIG:Debug>:
+	-g
+>
+$<$<CONFIG:Release>:
+	-O2
+>
+)
+
+target_compile_options(test_bert_encode_decode PRIVATE
 -Wall
 $<$<CONFIG:Debug>:
 	-g

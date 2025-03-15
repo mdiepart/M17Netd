@@ -157,6 +157,12 @@ int M17Demodulator::update(float *samples, const size_t N)
 #if M17DEMOD_DEBUG_OUT
         post_dcr.write(reinterpret_cast<const char*>(samples), N*sizeof(float));
 #endif
+
+        if(demodState == DemodState::UNLOCKED)
+        {
+            lastSyncWord = SyncWord::NONE;
+        }
+
         // Process samples
         for(size_t i = 0; i < N; i++)
         {
@@ -426,6 +432,8 @@ int M17Demodulator::update(float *samples, const size_t N)
 
                             float hd_min = min({hd_lsf, hd_pkt, hd_bert, hd_eot});
 
+                            demodState = DemodState::LOCKED;
+
                             if( hd_min == hd_lsf)
                                 lastSyncWord = SyncWord::LSF;
                             else if( hd_min == hd_pkt )
@@ -433,11 +441,13 @@ int M17Demodulator::update(float *samples, const size_t N)
                             else if( hd_min == hd_bert )
                                 lastSyncWord = SyncWord::BERT;
                             else if( hd_min == hd_eot)
+                            {
                                 lastSyncWord = SyncWord::EOT;
+                                demodState = DemodState::UNLOCKED;
+                                locked = false;
+                            }
                             else
                                 lastSyncWord = SyncWord::NONE;
-
-                            demodState = DemodState::LOCKED;
                         }
 
                         missedSyncs += 1;

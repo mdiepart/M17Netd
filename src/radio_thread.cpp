@@ -107,9 +107,9 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
                                      read, rx_baseband->data());
 
             // Use OpenRTX demodulator
-            bool new_frame = demodulator.update(rx_baseband->data(), read);
+            int new_frame = demodulator.update(rx_baseband->data(), read);
 
-            if(new_frame)
+            if(new_frame == 1)
             {
                 array<uint16_t, 2*SYM_PER_FRA> frame = demodulator.getFrame();
                 array<uint8_t, 2> sync_word = demodulator.getFrameSyncWord();
@@ -128,6 +128,10 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
                     from_radio.add(rx_packet);
                     rx_packet = make_shared<m17rx>();
                 }
+            }
+            else if(new_frame == -1)
+            {
+                rx_packet = make_shared<m17rx>();
             }
 
             if(!demodulator.isLocked())

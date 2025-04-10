@@ -24,6 +24,7 @@
 
 #include <cstdint>
 #include <array>
+#include <numeric>
 
 using namespace std;
 
@@ -40,16 +41,16 @@ private:
     static constexpr size_t SYNCWORD_SAMPLES = (SYNCW_SIZE-1) * SAMPLES_PER_SYM + 1;
     static constexpr size_t BUFFER_SIZE = SYNCWORD_SAMPLES + ADDITIONAL_STORAGE;
 
-    int16_t samples[BUFFER_SIZE];       ///< Samples' storage (circular buffer)
-    size_t  sampIdx;                    ///< Index of the next sample to write
-    size_t  prevIdx;                    ///< Index of the last written sample
+    array<int16_t, BUFFER_SIZE> samples;    ///< Samples' storage (circular buffer)
+    size_t  sampIdx;                        ///< Index of the next sample to write
+    size_t  prevIdx;                        ///< Index of the last written sample
 
 public:
 
     /**
      * Constructor.
      */
-    Correlator() : sampIdx(0) { }
+    Correlator() : samples({0}), sampIdx(0), prevIdx(0) { }
 
     /**
      * Destructor.
@@ -98,18 +99,20 @@ public:
      * @param syncword: syncword symbols.
      * @return convolution product.
      */
-    int32_t full_convolve(const std::array<int16_t, SYNCWORD_SAMPLES> &array) const
+    int32_t full_convolve(const std::array<int16_t, SYNCWORD_SAMPLES> &syncword) const
     {
-        int64_t conv = 0;
-        size_t pos = prevIdx + ADDITIONAL_STORAGE + 1;
+        int64_t acc = 0;
+        size_t pos = (prevIdx + ADDITIONAL_STORAGE + 1) % BUFFER_SIZE;
 
-        for(auto &x : array)
-        {
-            pos %= BUFFER_SIZE;
-            conv += ( static_cast<int64_t>(x) * samples[pos++] );
-        }
+        // Compute the dot product in two parts.
+        // Part 1 from pos to the end of samples array
+        size_t l1 = min ( (BUFFER_SIZE-pos), syncword.size() );
+        acc = inner_product(samples.begin() + pos, samples.begin() + pos + l1, syncword.begin(), acc);
 
-        return (conv>>13);
+        // Part 2 from beginning of samples array until length of syncword
+        acc = inner_product(syncword.begin() + l1, syncword.end(), samples.begin(), acc);
+
+        return (acc>>13);
     }
 
     /**
@@ -162,7 +165,7 @@ public:
      */
     const int16_t *data() const
     {
-        return samples;
+        return samples.data();
     }
 
     /**

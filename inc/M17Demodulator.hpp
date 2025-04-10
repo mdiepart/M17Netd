@@ -218,10 +218,9 @@ private:
     Synchronizer < M17_SYNCWORD_SYMBOLS, SAMPLES_PER_SYMBOL > EOTSync   {{ +3, +3, +3, +3, +3, +3, -3, +3 }};
 
 #if M17DEMOD_DEBUG_OUT
-    uint32_t                       total_cnt;
+    uint32_t total_cnt;
     ofstream post_demod;
-    size_t idx = 0;
-    ofstream post_dcr;
+    size_t   idx = 0;
     ofstream post_rrcos;
     ofstream samp_pts;
     ofstream corr_thresh;

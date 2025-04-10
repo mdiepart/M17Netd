@@ -75,7 +75,6 @@ void M17Demodulator::init()
 #if M17DEMOD_DEBUG_OUT
     total_cnt = 0;
     post_demod.open("./post_demod.raw", ios_base::binary | ios_base::trunc);
-    post_dcr.open("./post_drc.raw", ios_base::binary | ios_base::trunc);
     post_rrcos.open("./post_rrcos.raw", ios_base::binary | ios_base::trunc);
     samp_pts.open("./sampling_points.pts", ios_base::binary | ios_base::trunc);
     corr_thresh.open("./correlation_threshold.pts", ios_base::binary | ios_base::trunc);
@@ -97,7 +96,6 @@ void M17Demodulator::terminate()
 
 #if M17DEMOD_DEBUG_OUT
     post_demod.close();
-    post_dcr.close();
     post_rrcos.close();
     samp_pts.close();
     corr_thresh.close();
@@ -151,11 +149,6 @@ int M17Demodulator::update(float *samples, const size_t N)
     {
 #if M17DEMOD_DEBUG_OUT
         post_demod.write(reinterpret_cast<const char*>(samples), N*sizeof(float));
-#endif
-        // Apply DC removal filter
-        //iirfilt_rrrf_execute_block(dcr, samples, N, samples);
-#if M17DEMOD_DEBUG_OUT
-        post_dcr.write(reinterpret_cast<const char*>(samples), N*sizeof(float));
 #endif
 
         if(demodState == DemodState::UNLOCKED)

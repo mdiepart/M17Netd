@@ -163,18 +163,18 @@ int M17Demodulator::update(float *samples, const size_t N)
             lastSyncWord = SyncWord::NONE;
         }
 
+        // Apply RRC on the baseband sample
+        firfilt_rrrf_execute_block(rrcos_filt, samples, N, samples);
+#if M17DEMOD_DEBUG_OUT
+        post_rrcos.write(reinterpret_cast<const char *>(&elem), sizeof(float));
+#endif
         // Process samples
         for(size_t i = 0; i < N; i++)
         {
-            // Apply RRC on the baseband sample
-            float   elem;
-            firfilt_rrrf_push(rrcos_filt, samples[i]);
-            firfilt_rrrf_execute(rrcos_filt, &elem);
 #if M17DEMOD_DEBUG_OUT
             total_cnt++;
-            post_rrcos.write(reinterpret_cast<const char *>(&elem), sizeof(float));
 #endif
-            int16_t sample = static_cast<int16_t>(elem*500); // Scale up
+            int16_t sample = static_cast<int16_t>(samples[i]*500); // Scale up
 
             // Update correlator and sample filter for correlation thresholds
             correlator.sample(sample);

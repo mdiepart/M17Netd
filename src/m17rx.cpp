@@ -43,7 +43,7 @@ m17rx::m17rx(const m17rx &origin): status(origin.status), corrected_errors(origi
     pkt_data = new vector<uint8_t>(*(origin.pkt_data));
 }
 
-m17rx::m17rx(m17rx &&origin): status(origin.status), lsf(move(origin.lsf)), pkt_data(move(origin.pkt_data)),
+m17rx::m17rx(m17rx &&origin): status(origin.status), lsf(std::move(origin.lsf)), pkt_data(std::move(origin.pkt_data)),
                               corrected_errors(origin.corrected_errors), received_pkt_frames(origin.received_pkt_frames)
 {}
 
@@ -61,8 +61,8 @@ m17rx& m17rx::operator=(const m17rx &origin)
 m17rx& m17rx::operator=(m17rx &&origin)
 {
     status = origin.status;
-    lsf = move(origin.lsf);
-    pkt_data = move(origin.pkt_data);
+    lsf = std::move(origin.lsf);
+    pkt_data = std::move(origin.pkt_data);
     corrected_errors = origin.corrected_errors;
     received_pkt_frames = origin.received_pkt_frames;
 

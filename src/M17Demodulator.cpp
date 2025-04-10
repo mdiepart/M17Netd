@@ -231,6 +231,10 @@ int M17Demodulator::update(float *samples, const size_t N)
                     {
                         peak = packetSync.samplingIndex();
                     }
+                    else
+                    {
+                        cerr << "Unknown lastSyncWord" << endl;
+                    }
 
                     outerDeviation = correlator.maxDeviation(peak);
                     int32_t devSpacing = (outerDeviation.first-outerDeviation.second)/3;
@@ -273,6 +277,11 @@ int M17Demodulator::update(float *samples, const size_t N)
                     else if(lastSyncWord == SyncWord::BERT)
                     {
                         hd = softHammingDistance( 16, demodFrame->data(), SOFT_BERT_SYNC_WORD.data());
+                    }
+                    else
+                    {
+                        cerr << "Unknown lastSyncWord" << endl;
+                        hd = +INFINITY;
                     }
 
                     if(hd <= 1)

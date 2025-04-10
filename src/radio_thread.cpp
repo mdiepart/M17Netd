@@ -48,7 +48,7 @@ using namespace std;
 
 
 void radio_simplex::operator()(atomic_bool &running, const config &cfg,
-                    ConsumerProducerQueue<shared_ptr<m17tx>> &to_radio,
+                    ConsumerProducerQueue<shared_ptr<m17tx_pkt>> &to_radio,
                     ConsumerProducerQueue<shared_ptr<m17rx>> &from_radio)
 {
     radio_thread_cfg radio_cfg;
@@ -69,7 +69,7 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
     fdem = freqdem_create(radio_cfg.k);
     // For now, this threads gets packets from the network and display them
 
-    shared_ptr<m17tx> packet;
+    shared_ptr<m17tx_pkt> packet;
 
     // Allocations
     // Allocate the RX samples with fftw so that it is aligned for SIMD
@@ -107,9 +107,9 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
                                      read, rx_baseband->data());
 
             // Use OpenRTX demodulator
-            bool new_frame = demodulator.update(rx_baseband->data(), read);
+            int new_frame = demodulator.update(rx_baseband->data(), read);
 
-            if(new_frame)
+            if(new_frame == 1)
             {
                 array<uint16_t, 2*SYM_PER_FRA> frame = demodulator.getFrame();
                 array<uint8_t, 2> sync_word = demodulator.getFrameSyncWord();
@@ -128,6 +128,10 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
                     from_radio.add(rx_packet);
                     rx_packet = make_shared<m17rx>();
                 }
+            }
+            else if(new_frame == -1)
+            {
+                rx_packet = make_shared<m17rx>();
             }
 
             if(!demodulator.isLocked())

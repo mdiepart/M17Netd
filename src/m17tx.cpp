@@ -75,7 +75,7 @@ constexpr array<float, 161> m17tx::taps =
 -0.002258562030850857f
 };
 
-m17tx::m17tx(const string_view &src, const string_view &dst, const shared_ptr<vector<uint8_t>> ip_pkt): bb_samples(0), bb_idx(0), filt_offset(0)
+m17tx_pkt::m17tx_pkt(const string_view &src, const string_view &dst, const shared_ptr<vector<uint8_t>> ip_pkt): m17tx()
 {
     if(ip_pkt->size() > 822)
     {
@@ -114,7 +114,6 @@ m17tx::m17tx(const string_view &src, const string_view &dst, const shared_ptr<ve
 
     // 25 bytes max per frame
     unsigned short nb_pkt_frames = (ip_pkt->size()+3)/25 + ((ip_pkt->size()+3)%25)?1:0;
-    symbols = new vector<float>();
     symbols->reserve((nb_pkt_frames+3)*192); // packets + Preamble, LSF, EOT
 
     // Insert preample preceding the LSF frame
@@ -164,9 +163,101 @@ m17tx::m17tx(const string_view &src, const string_view &dst, const shared_ptr<ve
 
     send_eot(frame, &cnt);
     std::copy(frame, frame+cnt, back_inserter(*symbols));
+
+    filt_buff[0] = symbols->at(sym_idx++);
+}
+
+uint8_t m17tx_bert::bert_iter()
+{
+    uint8_t output = ( (bert_state >> 8) ^ (bert_state >> 4) ) & 0x1;
+    bert_state = (bert_state << 1) | output;
+
+    return output;
+}
+
+void m17tx_bert::generate_frame()
+{
+    uint8_t bert_data[25] = {0};
+    float frame[SYM_PER_FRA];
+
+    // Generate one frame worth of BERT bits sequence (197 bits)
+    for(size_t i = 0; i < 197; i++)
+    {
+        size_t byte = i/8;
+        size_t bit = i%8;
+        bert_data[byte] |= ( bert_iter() << (7-bit));
+    }
+
+    send_frame(frame, bert_data, FRAME_BERT, nullptr, 0, 0);
+    std::copy(frame, frame+SYM_PER_FRA, back_inserter(*symbols));
+}
+
+void m17tx_bert::generate_eot()
+{
+    float frame[SYM_PER_FRA];
+    uint32_t cnt = 0;
+
+    send_eot(frame, &cnt);
+    std::copy(frame, frame+cnt, back_inserter(*symbols));
+}
+
+m17tx_bert::m17tx_bert(): m17tx(), bert_state(1), eot_sent(false)
+{
+    float frame[192];
+    uint32_t cnt = 0;
+
+    // Write preamble symbols
+    send_preamble(frame, &cnt, PREAM_BERT);
+    std::copy(frame, frame+cnt, back_inserter(*symbols));
     cnt = 0;
+
+    generate_frame();
+
+    filt_buff[0] = symbols->at(sym_idx++);
+}
+
+vector<float> m17tx_bert::get_baseband_samples(size_t n)
+{
+    vector<float> samples_out = vector<float>();
+
+    if(eot_sent)
+    {
+        vector<float> tmp = m17tx::get_baseband_samples(n);
+        samples_out.insert(samples_out.end(), tmp.begin(), tmp.end());
+        return samples_out;
+    }
+
+    while(samples_out.size() < n)
+    {
+        // Take minimum between n and the number of samples left to be generated
+        size_t block_size = min(N*(symbols->size() - this->sym_idx), n-samples_out.size());
+        vector<float> tmp = m17tx::get_baseband_samples(block_size);
+        samples_out.insert(samples_out.end(), tmp.begin(), tmp.end());
+
+        // Check if symbols is used up. If so, add more symbols
+        if(sym_idx >= symbols->size())
+        {
+            symbols->clear();
+            sym_idx = 0;
+            bb_samples = 0;
+            generate_frame();
+        }
+    }
+
+    return samples_out;
+}
+
+void m17tx_bert::terminate_stream()
+{
+    if(!eot_sent)
+        generate_eot();
+    eot_sent = true;
+}
+
+m17tx::m17tx() : bb_samples(0), sym_idx(0), filt_offset(0)
+{
+    symbols = new vector<float>();
     filt_buff.fill(0.0f);
-    filt_buff[0] = symbols->at(bb_idx++);
 }
 
 m17tx::~m17tx()
@@ -195,19 +286,19 @@ vector<float> m17tx::get_baseband_samples(size_t n)
             }
 
             // If we used all symbols, use 0s instead
-            if(bb_idx >= symbols->size() && bb_idx < symbols->size()+(nb_taps/N))
+            if(sym_idx >= symbols->size() && sym_idx < symbols->size()+(nb_taps/N))
             {
                 filt_buff[0] = 0;
-                bb_idx++;
+                sym_idx++;
             }
-            else if(bb_idx >= symbols->size()+(nb_taps/N))
+            else if(sym_idx >= symbols->size()+(nb_taps/N))
             {
                 cout << "We used all symbols" << endl;
                 break;
             }
             else
             {
-                filt_buff[0] = symbols->at(bb_idx++);
+                filt_buff[0] = symbols->at(sym_idx++);
             }
 
             filt_offset = N-1;

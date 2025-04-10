@@ -36,7 +36,7 @@ using namespace std;
 class radio_simplex {
     public:
     void operator()(std::atomic_bool &running, const config &cfg,
-                    ConsumerProducerQueue<shared_ptr<m17tx>> &to_radio,
+                    ConsumerProducerQueue<shared_ptr<m17tx_pkt>> &to_radio,
                     ConsumerProducerQueue<shared_ptr<m17rx>> &from_radio);
 
     private:

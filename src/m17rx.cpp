@@ -26,7 +26,7 @@
 
 using namespace std;
 
-m17rx::m17rx(): status(packet_status::EMPTY), lsf(), corrected_errors(0), received_pkt_frames(-1)
+m17rx::m17rx(): status(packet_status::EMPTY), lsf(), corrected_errors(0), received_pkt_frames(-1), bert_lfsr(1), bert_errcnt(0), bert_totcnt(0), bert_synccnt(bert_lockcnt), bert_hist(0)
 {
     pkt_data = new vector<uint8_t>();
     pkt_data->reserve(25); // Reserve space for at least one frame
@@ -72,14 +72,33 @@ m17rx& m17rx::operator=(m17rx &&origin)
 int m17rx::add_frame(uint16_t sync_word, array<uint16_t, 2*SYM_PER_FRA> frame)
 {
     // Check if the packet is ready to receive a frame
-    if(status == packet_status::COMPLETE)
+    if(status == packet_status::PKT_COMPLETE)
     {
         cerr << "m17rx: cannot add another frame to a completed packet." << endl;
         return -1;
     }
-    else if(status == packet_status::ERROR)
+
+    if(status == packet_status::ERROR)
     {
-        cerr << "m17rx: cannot add another frame to a packet in error state" << endl;
+        cerr << "m17rx: cannot add another frame to a packet in error state." << endl;
+        return -1;
+    }
+
+    if(sync_word == SYNC_LSF && status != packet_status::EMPTY)
+    {
+        cerr << "m17rx: can only add an LSF frame to an empty packet." << endl;
+        return -1;
+    }
+
+    if(sync_word == SYNC_PKT && status != packet_status::LSF_RECEIVED)
+    {
+        cerr << "m17rx: can only add PKT frames once an LSF frame have been added." << endl;
+        return -1;
+    }
+
+    if(sync_word == SYNC_BER && (status != packet_status::BERT && status != packet_status::EMPTY))
+    {
+        cerr << "m17rx: packet not ready to receive BERT frames." << endl;
         return -1;
     }
 
@@ -105,12 +124,6 @@ int m17rx::add_frame(uint16_t sync_word, array<uint16_t, 2*SYM_PER_FRA> frame)
     {
         case SYNC_LSF:
         {
-            if(status != packet_status::EMPTY)
-            {
-                cerr << "m17rx: trying to add an LSF frame to a non-empty packet." << endl;
-                return -1;
-            }
-
             cout << "Adding LSF frame to packet" << endl;
             status = packet_status::LSF_RECEIVED;
             // Decode 368 type-3 soft bits to type-1 bits, stored in the lsf array
@@ -123,18 +136,13 @@ int m17rx::add_frame(uint16_t sync_word, array<uint16_t, 2*SYM_PER_FRA> frame)
 
         case SYNC_PKT:
         {
-            if(status != packet_status::LSF_RECEIVED)
-            {
-                cerr << "m17rx: packet is not ready to receive a new packet frame." << endl;
-                return -1;
-            }
             array<uint8_t, 26> pkt_type1; // 200+6 type-1 bits for pkt
 
             // Decode 368 type-3 soft bits to type-1 bits
             corrected_errors += viterbi_decode_punctured(buffer.data(), deinterleaved.data(),
                                     puncture_pattern_3, deinterleaved.size(), sizeof(puncture_pattern_3));
 
-            memcpy(pkt_type1.data(), buffer.data()+1, 26);
+            memcpy(pkt_type1.data(), buffer.data()+1, pkt_type1.size());
 
             // Check that the frame number is consistent with what have been received previously
             if(pkt_type1[25] & (1 << 7)) // Check if this is the last frame
@@ -142,7 +150,7 @@ int m17rx::add_frame(uint16_t sync_word, array<uint16_t, 2*SYM_PER_FRA> frame)
                 size_t nb_bytes = (pkt_type1[25] >> 2) & 0x1F;
                 pkt_data->insert(pkt_data->cend(), pkt_type1.cbegin(), pkt_type1.cbegin() + nb_bytes);
                 cout << "Received last packet frame with " << nb_bytes << " bytes inside. Total payload size is " << pkt_data->size() << "." << endl;
-                status = packet_status::COMPLETE;
+                status = packet_status::PKT_COMPLETE;
             }
             else
             {
@@ -164,6 +172,54 @@ int m17rx::add_frame(uint16_t sync_word, array<uint16_t, 2*SYM_PER_FRA> frame)
         }
         break;
 
+        case SYNC_BER:
+        {
+            status = packet_status::BERT;
+            corrected_errors += viterbi_decode_punctured(buffer.data(), deinterleaved.data(),
+                                    puncture_pattern_2, deinterleaved.size(), sizeof(puncture_pattern_2));
+
+            // Iterate over bits
+            for(size_t i = 7; i < 197+7; i++)
+            {
+                size_t byte_idx = i/8;
+                size_t bit_idx = 7-(i%8);
+                bool bit = (buffer[byte_idx] >> bit_idx) & 0x1;
+
+                if(bert_synccnt == 0)
+                {
+                    uint16_t lfsr_out = ((bert_lfsr >> 8) ^ (bert_lfsr >> 4)) & 0x1;
+                    bert_lfsr = (bert_lfsr << 1) | lfsr_out;
+
+                    bool err = (bit != lfsr_out);
+                    bert_hist = (bert_hist << 1) | err;
+                    bert_totcnt++;
+                    bert_errcnt += err;
+                    uint64_t hist_H = (bert_hist >> 64) & 0xFFFFFFFFFFFFFFFF;
+                    uint64_t hist_L = bert_hist & 0xFFFFFFFFFFFFFFFF;
+
+                    unsigned int popcnt = __builtin_popcountll(hist_H) + __builtin_popcountll(hist_L);
+                    if(popcnt > bert_lockcnt)
+                    {
+                        bert_synccnt = bert_lockcnt;
+                        bert_hist = 0;
+                    }
+                }
+                else{
+                    bool err = (bit ^ (bert_lfsr >> 8) ^ (bert_lfsr >> 4)) & 0x1;
+                    bert_lfsr = (bert_lfsr << 1) | bit;
+                    if(err)
+                    {
+                        bert_synccnt = bert_lockcnt;
+                    }
+                    else
+                    {
+                        bert_synccnt--;
+                    }
+                }
+            }
+        }
+        break;
+
         default:
         {
             cerr << "m17rx: Unknown M17 sync word (0x" << hex << sync_word << dec << ")." << endl;
@@ -176,7 +232,7 @@ int m17rx::add_frame(uint16_t sync_word, array<uint16_t, 2*SYM_PER_FRA> frame)
 
 bool m17rx::is_valid() const
 {
-    if(status != packet_status::COMPLETE)
+    if(status != packet_status::PKT_COMPLETE)
     {
         // An incomplete frame can not be valid
         return false;
@@ -194,7 +250,7 @@ bool m17rx::is_valid() const
 
 bool m17rx::is_complete() const
 {
-    return (status == packet_status::COMPLETE);
+    return (status == packet_status::PKT_COMPLETE);
 }
 
 uint32_t m17rx::corrected_bits() const
@@ -219,4 +275,24 @@ vector<uint8_t> m17rx::get_payload() const
 
     return vector<uint8_t>();
 
+}
+
+bool m17rx::is_bert() const
+{
+    return status == packet_status::BERT;
+}
+
+size_t m17rx::get_bert_totcnt() const
+{
+    return bert_totcnt;
+}
+
+size_t m17rx::get_bert_errcnt() const
+{
+    return bert_errcnt;
+}
+
+bool m17rx::is_bert_synced() const
+{
+    return bert_synccnt == 0;
 }

@@ -140,7 +140,7 @@ class m17_route
 
 void m17tx_thread::operator()(atomic_bool &running, const config &cfg,
                     ConsumerProducerQueue<shared_ptr<vector<uint8_t>>> &from_net,
-                    ConsumerProducerQueue<shared_ptr<m17tx>> &to_radio)
+                    ConsumerProducerQueue<shared_ptr<m17tx_pkt>> &to_radio)
 {
     vector<peer_t> peers = cfg.getPeers();
     const string_view src_callsign = cfg.getCallsign();
@@ -217,7 +217,7 @@ void m17tx_thread::operator()(atomic_bool &running, const config &cfg,
         else
         {
             cout << "Received a packet (len=" << ntohs(packet->ip_len) << ") for " << ip << ". Sending to " << dst->second << "." << endl;
-            shared_ptr<m17tx> baseband_pkt = shared_ptr<m17tx>(new m17tx(src_callsign, dst->second, raw));
+            shared_ptr<m17tx_pkt> baseband_pkt = shared_ptr<m17tx_pkt>(new m17tx_pkt(src_callsign, dst->second, raw));
             to_radio.add(baseband_pkt);
         }
     }

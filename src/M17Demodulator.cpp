@@ -28,6 +28,7 @@
 #include <cstdio>
 #include <m17.h>
 #include <iostream>
+#include <algorithm>
 
 using namespace M17;
 
@@ -144,7 +145,7 @@ bool M17Demodulator::isLocked() const
     return locked;
 }
 
-bool M17Demodulator::update(float *samples, const size_t N)
+int M17Demodulator::update(float *samples, const size_t N)
 {
     if(samples != nullptr)
     {
@@ -156,6 +157,12 @@ bool M17Demodulator::update(float *samples, const size_t N)
 #if M17DEMOD_DEBUG_OUT
         post_dcr.write(reinterpret_cast<const char*>(samples), N*sizeof(float));
 #endif
+
+        if(demodState == DemodState::UNLOCKED)
+        {
+            lastSyncWord = SyncWord::NONE;
+        }
+
         // Process samples
         for(size_t i = 0; i < N; i++)
         {
@@ -187,15 +194,19 @@ bool M17Demodulator::update(float *samples, const size_t N)
 
                 case DemodState::UNLOCKED:
                 {
-                    int8_t  lsfSyncStatus = lsfSync.update(correlator, syncThresh, -syncThresh);
+                    int8_t lsfSyncStatus = lsfSync.update(correlator, syncThresh, -syncThresh);
+                    int8_t bertSyncStatus = -packetSync.update(correlator, syncThresh, -syncThresh);
 
 #if M17DEMOD_DEBUG_OUT
                     // Write corr value to file
-                    float corr = static_cast<float>(lsfSync.getLastCorr())/100000;
+                    float lsf_corr_val = static_cast<float>(lsfSync.getLastCorr())/100000;
+                    float pkt_corr_val = static_cast<float>(packetSync.getLastCorr())/100000;
                     float st = static_cast<float>(syncThresh)/10000;
                     float tmp = total_cnt;
                     lsf_corr.write(reinterpret_cast<const char*>(&tmp), 4);
-                    lsf_corr.write(reinterpret_cast<const char*>(&corr), 4);
+                    lsf_corr.write(reinterpret_cast<const char*>(&lsf_corr_val), 4);
+                    pkt_corr.write(reinterpret_cast<const char*>(&tmp), 4);
+                    pkt_corr.write(reinterpret_cast<const char*>(&pkt_corr_val), 4);
                     sync_thresh.write(reinterpret_cast<const char*>(&tmp), 4);
                     sync_thresh.write(reinterpret_cast<const char*>(&st), 4);
 #endif
@@ -203,6 +214,12 @@ bool M17Demodulator::update(float *samples, const size_t N)
                     if(lsfSyncStatus == 1)
                     {
                         //cout << "Found LSF. Unlocked -> Synced" << endl;
+                        lastSyncWord = SyncWord::LSF;
+                        demodState = DemodState::SYNCED;
+                    }
+                    else if(bertSyncStatus == 1)
+                    {
+                        lastSyncWord = SyncWord::BERT;
                         demodState = DemodState::SYNCED;
                     }
                 }
@@ -211,8 +228,18 @@ bool M17Demodulator::update(float *samples, const size_t N)
                 case DemodState::SYNCED:
                 {
                     // Set sampling point and deviation, zero frame symbol count
-                    size_t lsf_peak = lsfSync.samplingIndex();
-                    outerDeviation = correlator.maxDeviation(lsf_peak);
+                    size_t peak = 0;
+                    if(lastSyncWord == SyncWord::LSF)
+                    {
+                        peak = lsfSync.samplingIndex();
+
+                    }
+                    else if(lastSyncWord == SyncWord::BERT)
+                    {
+                        peak = packetSync.samplingIndex();
+                    }
+
+                    outerDeviation = correlator.maxDeviation(peak);
                     int32_t devSpacing = (outerDeviation.first-outerDeviation.second)/3;
                     innerDeviation.first = outerDeviation.first - devSpacing; // Deviation for +1
                     innerDeviation.second = outerDeviation.second + devSpacing; // deviation for -1
@@ -220,7 +247,7 @@ bool M17Demodulator::update(float *samples, const size_t N)
 
                     // correlator.index() is the index where the last sample was written in correlator memory
                     // samplingPoint is the index where the peak correlation occured
-                    size_t shift = (correlator.index() + correlator.bufferSize() - lsf_peak) % correlator.bufferSize(); // how many samples ago was the peak found
+                    size_t shift = (correlator.index() + correlator.bufferSize() - peak) % correlator.bufferSize(); // how many samples ago was the peak found
 
 #if M17DEMOD_DEBUG_OUT
                     size_t tmp = total_cnt; // Save current total_cnt
@@ -230,7 +257,7 @@ bool M17Demodulator::update(float *samples, const size_t N)
                     // Quantize the syncword taking data from the correlator memory.
                     for(ssize_t i = -(SYNCWORD_SAMPLES-SAMPLES_PER_SYMBOL); i <= 0; i += SAMPLES_PER_SYMBOL)
                     {
-                        ssize_t  pos = (lsf_peak + correlator.bufferSize() + i) % correlator.bufferSize();
+                        ssize_t  pos = (peak + correlator.bufferSize() + i) % correlator.bufferSize();
 
                         int16_t val = correlator.data()[pos];
 
@@ -245,14 +272,22 @@ bool M17Demodulator::update(float *samples, const size_t N)
                     total_cnt = tmp;
 #endif
 
-                    float hd  = softHammingDistance( 16, demodFrame->data(), SOFT_LSF_SYNC_WORD.data());
+                    float hd;
+                    if(lastSyncWord == SyncWord::LSF)
+                    {
+                        hd = softHammingDistance( 16, demodFrame->data(), SOFT_LSF_SYNC_WORD.data());
+                    }
+                    else if(lastSyncWord == SyncWord::BERT)
+                    {
+                        hd = softHammingDistance( 16, demodFrame->data(), SOFT_BERT_SYNC_WORD.data());
+                    }
+
                     if(hd <= 1)
                     {
                         locked     = true;
                         demodState = DemodState::LOCKED;
-                        lastSyncWord = SyncWord::LSF;
                         sampleIndex = shift;
-                        cout << "M17Demodulator: Received LSF sync with hd=" << hd << ": Synced -> Locked" << endl;
+                        cout << "M17Demodulator: Received " << ((lastSyncWord == SyncWord::LSF)? "LSF":"BERT") << " sync with hd=" << hd << ": Synced -> Locked" << endl;
                     }
                     else
                     {
@@ -309,7 +344,7 @@ bool M17Demodulator::update(float *samples, const size_t N)
                         if(packetSyncStatus == 1)
                         {
                             float hd  = softHammingDistance(16, demodFrame->data(), SOFT_PACKET_SYNC_WORD.data());
- 
+
                             // Valid sync found: update deviation and sample
                             // point, then go back to locked state
                             if(hd <= 1.7)
@@ -332,6 +367,32 @@ bool M17Demodulator::update(float *samples, const size_t N)
                                 break;
                             }
                         }
+                        else if(packetSyncStatus == -1)
+                        {
+                            float hd  = softHammingDistance(16, demodFrame->data(), SOFT_BERT_SYNC_WORD.data());
+
+                            // Valid sync found: update deviation and sample
+                            // point, then go back to locked state
+                            if(hd <= 1.7)
+                            {
+                                size_t bert_peak = packetSync.samplingIndex();
+                                outerDeviation = correlator.maxDeviation(bert_peak);
+                                int32_t devSpacing = (outerDeviation.first-outerDeviation.second)/3;
+                                innerDeviation.first = outerDeviation.first-devSpacing; // Deviation for +1
+                                innerDeviation.second = outerDeviation.second + devSpacing; // deviation for -1
+                                //cout << "bert_peak=" << bert_peak << ", correlator.index()=" << correlator.index() << endl;
+                                sampleIndex = (correlator.index() - bert_peak);
+
+                                if(sampleIndex > correlator.bufferSize())
+                                    sampleIndex += correlator.bufferSize();
+
+                                missedSyncs    = 0;
+                                demodState     = DemodState::LOCKED;
+                                lastSyncWord   = SyncWord::BERT;
+                                //cout << "M17 Demodulator: Received bert sync: Sync Update -> Locked" << endl;
+                                break;
+                            }
+                        }
                         else if(eotSyncStatus == 1)
                         {
                             float hd  = softHammingDistance(16, demodFrame->data(), SOFT_EOT_SYNC_WORD.data());
@@ -342,7 +403,7 @@ bool M17Demodulator::update(float *samples, const size_t N)
                                 missedSyncs = 0;
                                 demodState     = DemodState::UNLOCKED;
                                 locked = false;
-                                lastSyncWord = SyncWord::NONE;
+                                lastSyncWord = SyncWord::EOT;
                                 cout << "M17Demodulator: Received EOT sync: -> Unlocked" << endl;
                                 break;
                             }
@@ -366,16 +427,27 @@ bool M17Demodulator::update(float *samples, const size_t N)
                             // Checking which sync word is the most probable
                             float hd_lsf = softHammingDistance(16, demodFrame->data(), SOFT_LSF_SYNC_WORD.data());
                             float hd_pkt = softHammingDistance(16, demodFrame->data(), SOFT_PACKET_SYNC_WORD.data());
+                            float hd_bert = softHammingDistance(16, demodFrame->data(), SOFT_BERT_SYNC_WORD.data());
                             float hd_eot = softHammingDistance(16, demodFrame->data(), SOFT_EOT_SYNC_WORD.data());
 
-                            if( (hd_lsf < hd_pkt) && (hd_lsf < hd_eot) )
-                                lastSyncWord = SyncWord::LSF;
-                            else if( (hd_pkt < hd_lsf) && (hd_pkt < hd_eot) )
-                                lastSyncWord = SyncWord::PACKET;
-                            else
-                                lastSyncWord = SyncWord::NONE;
+                            float hd_min = min({hd_lsf, hd_pkt, hd_bert, hd_eot});
 
                             demodState = DemodState::LOCKED;
+
+                            if( hd_min == hd_lsf)
+                                lastSyncWord = SyncWord::LSF;
+                            else if( hd_min == hd_pkt )
+                                lastSyncWord = SyncWord::PACKET;
+                            else if( hd_min == hd_bert )
+                                lastSyncWord = SyncWord::BERT;
+                            else if( hd_min == hd_eot)
+                            {
+                                lastSyncWord = SyncWord::EOT;
+                                demodState = DemodState::UNLOCKED;
+                                locked = false;
+                            }
+                            else
+                                lastSyncWord = SyncWord::NONE;
                         }
 
                         missedSyncs += 1;
@@ -389,8 +461,8 @@ bool M17Demodulator::update(float *samples, const size_t N)
             sampleIndex  = (sampleIndex + 1) % SAMPLES_PER_SYMBOL;
         }
     }
-
-    return newFrame;
+    
+    return (lastSyncWord==SyncWord::EOT)?-1:newFrame;
 }
 
 void M17Demodulator::updateFrame(int16_t sample)

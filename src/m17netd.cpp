@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
     std::size_t txQueueSize = cfg.getTxQueueSize();
     std::size_t rxQueueSize = cfg.getRxQueueSize();
     ConsumerProducerQueue<std::shared_ptr<std::vector<uint8_t>>> from_net(txQueueSize);
-    ConsumerProducerQueue<std::shared_ptr<m17tx>> to_radio(txQueueSize);
+    ConsumerProducerQueue<std::shared_ptr<m17tx_pkt>> to_radio(txQueueSize);
     ConsumerProducerQueue<std::shared_ptr<m17rx>> from_radio(rxQueueSize);
 
 

@@ -463,7 +463,7 @@ int M17Demodulator::update(float *samples, const size_t N)
             sampleIndex  = (sampleIndex + 1) % SAMPLES_PER_SYMBOL;
         }
     }
-    
+
     return (lastSyncWord==SyncWord::EOT)?-1:newFrame;
 }
 

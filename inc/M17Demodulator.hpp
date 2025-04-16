@@ -99,7 +99,7 @@ public:
      *
      * @param samples: Float array containing the samples to demodulate
      * @param N: Number of samples in the *sample array
-     * 
+     *
      * @return 1 if a new frame has been fully decoded, -1 if EOT was detected, 0 otherwise
      */
     int update(float *samples, const size_t N);

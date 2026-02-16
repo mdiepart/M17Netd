@@ -144,11 +144,11 @@ int main(int argc, char *argv[])
     // Try to open the output file
     try
     {
-        iq_out_file.open(argv[4]);
+        iq_out_file.open(argv[5]);
     }
     catch(const std::exception &e)
     {
-        cerr << "Unable to open output file \"" << argv[4] << "\"." << endl;
+        cerr << "Unable to open output file \"" << argv[5] << "\"." << endl;
         return EXIT_FAILURE;
     }
 

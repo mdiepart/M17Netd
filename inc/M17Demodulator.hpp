@@ -178,7 +178,8 @@ private:
     enum class DemodState
     {
         INIT,       ///< Initializing
-        UNLOCKED,   ///< Not locked
+        UNLOCKED,   ///< Not locked, receiving noise
+        ARMED,      ///< Detected preamble, awaiting LSF
         SYNCED,     ///< Synchronized, validate syncword
         LOCKED,     ///< Locked
         SYNC_UPDATE ///< Updating the sampling point

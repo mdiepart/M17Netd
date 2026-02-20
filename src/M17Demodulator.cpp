@@ -157,7 +157,7 @@ int M17Demodulator::update(float *samples, const size_t N)
         // Apply RRC on the baseband sample
         firfilt_rrrf_execute_block(rrcos_filt, samples, N, samples);
 #if M17DEMOD_DEBUG_OUT
-        post_rrcos.write(reinterpret_cast<const char *>(&elem), sizeof(float));
+        post_rrcos.write(reinterpret_cast<const char *>(samples), sizeof(float));
 #endif
         // Process samples
         for(size_t i = 0; i < N; i++)
@@ -224,7 +224,7 @@ int M17Demodulator::update(float *samples, const size_t N)
                     // Write corr value to file
                     float lsf_corr_val = static_cast<float>(lsfSync.getLastCorr())/100000;
                     float pkt_corr_val = static_cast<float>(packetSync.getLastCorr())/100000;
-                    float st = static_cast<float>(syncThresh)/10000;
+                    float st = static_cast<float>(syncThresh)/100000;
                     float tmp = total_cnt;
                     lsf_corr.write(reinterpret_cast<const char*>(&tmp), 4);
                     lsf_corr.write(reinterpret_cast<const char*>(&lsf_corr_val), 4);

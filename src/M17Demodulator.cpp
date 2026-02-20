@@ -184,8 +184,40 @@ int M17Demodulator::update(float *samples, const size_t N)
                     }
                 }
                     break;
-
                 case DemodState::UNLOCKED:
+                {
+                    static int waiting = 2500;
+                    lsfSync.update(correlator, syncThresh, -syncThresh);
+                    packetSync.update(correlator, syncThresh, -syncThresh);
+
+#if M17DEMOD_DEBUG_OUT
+                    // Write corr value to file
+                    float lsf_corr_val = static_cast<float>(lsfSync.getLastCorr())/100000;
+                    float pkt_corr_val = static_cast<float>(packetSync.getLastCorr())/100000;
+                    float st = static_cast<float>(syncThresh)/100000;
+                    float tmp = total_cnt;
+                    lsf_corr.write(reinterpret_cast<const char*>(&tmp), 4);
+                    lsf_corr.write(reinterpret_cast<const char*>(&lsf_corr_val), 4);
+                    pkt_corr.write(reinterpret_cast<const char*>(&tmp), 4);
+                    pkt_corr.write(reinterpret_cast<const char*>(&pkt_corr_val), 4);
+                    sync_thresh.write(reinterpret_cast<const char*>(&tmp), 4);
+                    sync_thresh.write(reinterpret_cast<const char*>(&st), 4);
+#endif
+                    if( abs(lsfSync.getLastCorr()) < 90000 )
+                        waiting--;
+                    else
+                        waiting = 2500;
+
+                    if(waiting <= 0)
+                    {
+                        demodState = DemodState::ARMED;
+                        waiting = 2500;
+                    }
+
+
+                }
+                    break;
+                case DemodState::ARMED:
                 {
                     int8_t lsfSyncStatus = lsfSync.update(correlator, syncThresh, -syncThresh);
                     int8_t bertSyncStatus = -packetSync.update(correlator, syncThresh, -syncThresh);

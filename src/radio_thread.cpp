@@ -45,7 +45,34 @@
 
 using namespace std;
 
-
+float lpf_taps[] = {
+    2.847196265065577e-05,
+    0.00011368729610694572f,0.00023137565585784614f,0.0003731952456291765f,0.0005227993242442608,
+    0.0006563419010490179f,0.0007444592192769051f,0.0007557355565950274f,0.0006614116718992591,
+    0.0004408441891428083,8.699936006451026e-05f,-0.00038888040580786765f,-0.0009543407359160483,
+    -0.0015553210396319628f,-0.002118882490321994f,-0.002559284446761012f,-0.0027871839702129364,
+    -0.002721251454204321f,-0.002301019849255681f,-0.0014994251541793346f,-0.00033327125129289925,
+    0.0011301477206870914f,0.0027718008495867252f,0.004426117986440659f,0.005893021821975708,
+    0.006956371944397688f,0.007407538592815399f,0.0070720030926167965f,0.005836252123117447,
+    0.003671832149848342f,0.0006533983978442848f,-0.003032081527635455f,-0.007087105419486761,
+    -0.011117507703602314f,-0.014658285304903984f,-0.017209898680448532f,-0.01828226074576378,
+    -0.017442580312490463f,-0.014362438581883907f,-0.008859267458319664f,-0.0009275897173210979,
+    0.009243843145668507f,0.021271638572216034f,0.03459515795111656f,0.048511020839214325,
+    0.06222226470708847f,0.0748981237411499f,0.08573918789625168f,0.09404204785823822,
+    0.09925734251737595f,0.1010357216000557f,0.09925734251737595f,0.09404204785823822,
+    0.08573918789625168f,0.0748981237411499f,0.06222226470708847f,0.048511020839214325,
+    0.03459515795111656f,0.021271638572216034f,0.009243843145668507f,-0.0009275897173210979,
+    -0.008859267458319664f,-0.014362438581883907f,-0.017442580312490463f,-0.01828226074576378,
+    -0.017209898680448532f,-0.014658285304903984f,-0.011117507703602314f,-0.007087105419486761,
+    -0.003032081527635455f,0.0006533983978442848f,0.003671832149848342f,0.005836252123117447,
+    0.0070720030926167965f,0.007407538592815399f,0.006956371944397688f,0.005893021821975708,
+    0.004426117986440659f,0.0027718008495867252f,0.0011301477206870914f,-0.00033327125129289925,
+    -0.0014994251541793346f,-0.002301019849255681f,-0.002721251454204321f,-0.0027871839702129364,
+    -0.002559284446761012f,-0.002118882490321994f,-0.0015553210396319628f,-0.0009543407359160483,
+    -0.00038888040580786765,8.699936006451026e-05f,0.0004408441891428083f,0.0006614116718992591,
+    0.0007557355565950274f,0.0007444592192769051f,0.0006563419010490179f,0.0005227993242442608,
+    0.0003731952456291765f,0.00023137565585784614f,0.00011368729610694572,2.847196265065577e-05,
+};
 
 void radio_simplex::operator()(atomic_bool &running, const config &cfg,
                     ConsumerProducerQueue<shared_ptr<m17tx_pkt>> &to_radio,
@@ -67,15 +94,19 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
     // Initialize frequency modulator / demodulator
     fmod = freqmod_create(radio_cfg.k);
     fdem = freqdem_create(radio_cfg.k);
-    // For now, this threads gets packets from the network and display them
+
+    // initialize DC remover
+    iirfilt_crcf dcr = iirfilt_crcf_create_dc_blocker(5.0/96000.0);
+    firfilt_crcf lpf = firfilt_crcf_create(lpf_taps, sizeof(lpf_taps)/sizeof(float));
 
     shared_ptr<m17tx_pkt> packet;
 
     // Allocations
     // Allocate the RX samples with fftw so that it is aligned for SIMD
-    complex<float>                      *rx_samples     = reinterpret_cast<complex<float>*>(fftwf_alloc_complex(block_size));
-    array<complex<float>, block_size>   *tx_samples     = new array<complex<float>, block_size>();
-    array<float, block_size>            *rx_baseband    = new array<float, block_size>();
+    complex<float>                      *rx_samples         = reinterpret_cast<complex<float>*>(fftwf_alloc_complex(block_size));
+    array<complex<float>, block_size>   *rx_samples_filt    = new array<complex<float>, block_size>();
+    array<complex<float>, block_size>   *tx_samples         = new array<complex<float>, block_size>();
+    array<float, block_size>            *rx_baseband        = new array<float, block_size>();
 
     // FFT: we only compute the FFT of the first 512 points
     complex<float> *rx_samples_fft = reinterpret_cast<complex<float>*>(fftwf_alloc_complex(fft_size));
@@ -102,9 +133,14 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
         {
             int read = radio.receive(rx_samples, block_size);
 
+            // Remove DC offset (in-place)
+            iirfilt_crcf_execute_block(dcr, rx_samples, read, rx_samples);
+
+            // Filter-out out-of-band signal
+            firfilt_crcf_execute_block(lpf, rx_samples, read, rx_samples_filt->data());
+
             // Frequency demodulation
-            freqdem_demodulate_block(fdem, reinterpret_cast<liquid_float_complex *>(rx_samples),
-                                     read, rx_baseband->data());
+            freqdem_demodulate_block(fdem, rx_samples_filt->data(), read, rx_baseband->data());
 
             // Use OpenRTX demodulator
             int new_frame = demodulator.update(rx_baseband->data(), read);
@@ -139,7 +175,7 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
                 fftwf_execute(fft_plan);
 
                 // Re-use rx_samples to store the module of the array
-                complex<float> *in = reinterpret_cast<complex<float> *>(rx_samples_fft);
+                complex<float> *in = rx_samples_fft;
                 float *out = reinterpret_cast<float *>(rx_samples);
                 for(size_t i = 0; i < fft_size; i++)
                 {
@@ -166,14 +202,14 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
                 noise /= (fft_size-2*half_chan_width);
 
                 // Check if there is more energy in the channel than elsewhere in the spectrum
-                if( (chan >= 5*noise) && !channel_bsy )
+                if( (chan >= 4*noise) && !channel_bsy )
                 {
                     // Channel is busy
                     cout << "Channel now busy (chan=" << chan << ", noise=" << noise << ", ratio=" << chan/noise << ")" << endl;
                     channel_bsy = true;
 
                 }
-                else if( (chan < 5*noise) && channel_bsy)
+                else if( (chan < 4*noise) && channel_bsy)
                 {
                     // Channel is free
                     cout << "Channel now free (chan=" << chan << ", noise=" << noise << ", ratio=" << chan/noise << ")" << endl;
@@ -212,6 +248,8 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
         }
     }
 
+    iirfilt_crcf_destroy(dcr);
+    firfilt_crcf_destroy(lpf);
 
     fftwf_destroy_plan(fft_plan);
     fftwf_free(rx_samples);

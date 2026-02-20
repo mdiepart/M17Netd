@@ -209,7 +209,6 @@ private:
     uint32_t                       syncCount;       ///< Downcounter for resynchronization
     std::pair < int32_t, int32_t > outerDeviation;  ///< Deviation of outer symbols
     std::pair < int32_t, int32_t > innerDeviation;  ///< Deviation of inner symbols
-    iirfilt_rrrf                   dcr;             ///< DC removal filter
     firfilt_rrrf                   rrcos_filt;      ///< Root-raised cosine filter for baseband signal
     SyncWord                       lastSyncWord;
 

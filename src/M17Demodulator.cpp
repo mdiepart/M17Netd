@@ -34,7 +34,6 @@ using namespace M17;
 
 M17Demodulator::M17Demodulator()
 {
-    dcr = iirfilt_rrrf_create_dc_blocker(0.0002f);
     float taps[161];
     memcpy(taps, rrc_taps_20, 161*sizeof(float));
     rrcos_filt = firfilt_rrrf_create(taps, 161);
@@ -44,7 +43,6 @@ M17Demodulator::M17Demodulator()
 M17Demodulator::~M17Demodulator()
 {
     terminate();
-    iirfilt_rrrf_destroy(dcr);
     firfilt_rrrf_destroy(rrcos_filt);
 }
 
@@ -582,6 +580,5 @@ void M17Demodulator::reset()
     demodState  = DemodState::INIT;
     initCount   = RX_SAMPLE_RATE / 50;  // 50ms of init time
 
-    iirfilt_rrrf_reset(dcr);
     firfilt_rrrf_reset(rrcos_filt);
 }

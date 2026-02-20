@@ -26,7 +26,7 @@ def plot_pts_file(filename, samples):
 
     samps = np.logical_and((x <= hi), (x >= lo))
 
-    plt.plot(x[samps], y[samps]/500, 'o')
+    plt.plot(x[samps], y[samps], 'o')
     #plt.title(filename)
 
 

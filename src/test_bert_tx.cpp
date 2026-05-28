@@ -137,6 +137,7 @@ int main(int argc, char *argv[])
 
     sdrnode radio(tx_frequency, tx_frequency, ppm);
     radio.set_tx_gain(tx_gain);
+    radio.set_tx_high(true);
     radio.switch_tx();
 
     // Frequency modulator

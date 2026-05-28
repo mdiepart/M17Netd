@@ -99,6 +99,7 @@ class sdrnode
 
         gpio_set_level( gpio_PA_enable, 1 );
         gpio_set_level( gpio_bias_enable, 1 );
+        gpio_set_level( gpio_TX_lowpower, !tx_high);
     }
 
     /**
@@ -108,11 +109,14 @@ class sdrnode
     {
         gpio_set_level( gpio_bias_enable, 0 ) ;
         gpio_set_level( gpio_PA_enable, 0 ) ;
+        usleep(1000);
+        gpio_set_level( gpio_TX_lowpower, 0) ;
         gpio_set_level( gpio_relay_TX, 0 ) ;
     }
 
     // Internal state
     bool tx_nRx = false;
+    bool tx_high = false;
     unsigned long rx_frequency = 0;
     unsigned long tx_frequency = 0;
 
@@ -178,5 +182,12 @@ class sdrnode
      * @return 0 on success, -1 on error
      */
     int set_tx_gain(unsigned gain);
+
+    /**
+     * Sets the gain of the final power amplifier to high or low
+     *
+     * @param high true for high output power, false for low output power
+     */
+    void set_tx_high(const bool high);
 
 };

@@ -612,3 +612,8 @@ int sdrnode::set_tx_gain(unsigned gain)
 
     return sx1255.set_tx_mix_gain(gain);
 }
+
+void sdrnode::set_tx_high(const bool high)
+{
+    tx_high = high;
+}

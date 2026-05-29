@@ -141,7 +141,7 @@ int sx1255_drv::set_dac_gain(dac_gain gain)
         return -1;
 
     // Modify the value and send
-    buffer[1] = (buffer[1] & 0x0F) | gain;
+    buffer[1] = (buffer[1] & 0x0F) | (gain << 4);
     buffer[0] = TXFE1_ADDR | REG_WRITE;
     ret = spi.send(buffer.data(), buffer.size());
 

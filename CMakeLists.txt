@@ -33,6 +33,17 @@ if(liquid_LIB STREQUAL "liquid-NOTFOUND")
 	message(SEND_ERROR "libliquid could not be found on your system.")
 endif()
 
+include_directories(inc)
+add_library(sx1255 OBJECT src/sx1255.cpp)
+add_library(sdrnode OBJECT src/sdrnode.cpp)
+add_library(spi OBJECT src/spi.cpp)
+add_library(m17rx OBJECT src/m17rx.cpp)
+target_link_libraries(m17rx PUBLIC m17-static)
+add_library(m17tx OBJECT src/m17tx.cpp)
+target_link_libraries(m17tx PUBLIC m17-static)
+add_library(M17Demodulator OBJECT src/M17Demodulator.cpp)
+target_link_libraries(M17Demodulator PUBLIC m17-static)
+
 # Define source files
 set(m17netd_src
     src/m17netd.cpp
@@ -41,25 +52,25 @@ set(m17netd_src
 	src/tun_threads.cpp
 	src/radio_thread.cpp
 	src/m17tx_thread.cpp
-	src/sdrnode.cpp
-	src/m17tx.cpp
-	src/spi.cpp
-	src/sx1255.cpp
-	src/M17Demodulator.cpp
-	src/m17rx.cpp
+	$<TARGET_OBJECTS:sx1255>
+	$<TARGET_OBJECTS:sdrnode>
+	$<TARGET_OBJECTS:spi>
+	$<TARGET_OBJECTS:m17rx>
+	$<TARGET_OBJECTS:m17tx>
+	$<TARGET_OBJECTS:M17Demodulator>
 )
 
 # Add tests target
 add_custom_target(tests)
 
 # Declare executables
-add_executable(M17Netd ${m17netd_src} ${common_src})
-add_executable(test_tone EXCLUDE_FROM_ALL src/test_tone.cpp src/sx1255.cpp src/spi.cpp)
-add_executable(test_demod EXCLUDE_FROM_ALL src/test_demod.cpp src/M17Demodulator.cpp src/m17rx.cpp)
-add_executable(test_acq EXCLUDE_FROM_ALL src/test_acq.cpp src/sdrnode.cpp src/sx1255.cpp src/spi.cpp)
+add_executable(M17Netd ${m17netd_src} )
+add_executable(test_tone EXCLUDE_FROM_ALL src/test_tone.cpp $<TARGET_OBJECTS:sx1255> $<TARGET_OBJECTS:spi>)
+add_executable(test_demod EXCLUDE_FROM_ALL src/test_demod.cpp $<TARGET_OBJECTS:M17Demodulator> $<TARGET_OBJECTS:m17rx>)
+add_executable(test_acq EXCLUDE_FROM_ALL src/test_acq.cpp $<TARGET_OBJECTS:sdrnode> $<TARGET_OBJECTS:sx1255> $<TARGET_OBJECTS:spi>)
 add_executable(test_filter EXCLUDE_FROM_ALL src/test_filter.cpp)
-add_executable(test_bert_rx EXCLUDE_FROM_ALL src/test_bert_rx.cpp src/sdrnode.cpp src/sx1255.cpp src/spi.cpp src/M17Demodulator.cpp src/m17rx.cpp)
-add_executable(test_bert_tx EXCLUDE_FROM_ALL src/test_bert_tx.cpp src/sdrnode.cpp src/sx1255.cpp src/spi.cpp src/m17tx.cpp)
+add_executable(test_bert_rx EXCLUDE_FROM_ALL src/test_bert_rx.cpp $<TARGET_OBJECTS:sdrnode> $<TARGET_OBJECTS:sx1255> $<TARGET_OBJECTS:spi> $<TARGET_OBJECTS:M17Demodulator> $<TARGET_OBJECTS:m17rx>)
+add_executable(test_bert_tx EXCLUDE_FROM_ALL src/test_bert_tx.cpp $<TARGET_OBJECTS:sdrnode> $<TARGET_OBJECTS:sx1255> $<TARGET_OBJECTS:spi> $<TARGET_OBJECTS:m17tx>)
 add_executable(test_bert_encode_decode EXCLUDE_FROM_ALL src/test_bert_encode_decode.cpp)
 add_dependencies(tests test_tone test_demod test_acq test_filter test_bert_rx test_bert_tx test_bert_encode_decode)
 

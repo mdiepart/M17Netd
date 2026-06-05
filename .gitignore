@@ -36,3 +36,6 @@ build
 
 # VScode
 .vscode
+
+# Custom config files for M17Netd
+*.conf

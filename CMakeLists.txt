@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.16)
 
 project(M17Netd
 	DESCRIPTION "M17Netd - Network bridges over M17"
@@ -65,45 +65,12 @@ add_custom_target(tests)
 
 # Declare executables
 add_executable(M17Netd ${m17netd_src} )
-add_executable(test_tone EXCLUDE_FROM_ALL src/test_tone.cpp $<TARGET_OBJECTS:sx1255> $<TARGET_OBJECTS:spi>)
-add_executable(test_demod EXCLUDE_FROM_ALL src/test_demod.cpp $<TARGET_OBJECTS:M17Demodulator> $<TARGET_OBJECTS:m17rx>)
-add_executable(test_acq EXCLUDE_FROM_ALL src/test_acq.cpp $<TARGET_OBJECTS:sdrnode> $<TARGET_OBJECTS:sx1255> $<TARGET_OBJECTS:spi>)
-add_executable(test_filter EXCLUDE_FROM_ALL src/test_filter.cpp)
-add_executable(test_bert_rx EXCLUDE_FROM_ALL src/test_bert_rx.cpp $<TARGET_OBJECTS:sdrnode> $<TARGET_OBJECTS:sx1255> $<TARGET_OBJECTS:spi> $<TARGET_OBJECTS:M17Demodulator> $<TARGET_OBJECTS:m17rx>)
-add_executable(test_bert_tx EXCLUDE_FROM_ALL src/test_bert_tx.cpp $<TARGET_OBJECTS:sdrnode> $<TARGET_OBJECTS:sx1255> $<TARGET_OBJECTS:spi> $<TARGET_OBJECTS:m17tx>)
-add_executable(test_bert_encode_decode EXCLUDE_FROM_ALL src/test_bert_encode_decode.cpp)
-add_dependencies(tests test_tone test_demod test_acq test_filter test_bert_rx test_bert_tx test_bert_encode_decode)
-
-# Include directories
+target_precompile_headers(M17Netd PRIVATE ${tomlplusplus_SOURCE_DIR}/toml.hpp)
 target_include_directories(M17Netd PUBLIC
 				${PROJECT_SOURCE_DIR}/inc
 				${tomlplusplus_SOURCE_DIR}
 				PkgConfig::FFTW
 				)
-
-target_include_directories(test_demod PUBLIC
-				${PROJECT_SOURCE_DIR}/inc)
-
-target_include_directories(test_tone PUBLIC
-				${PROJECT_SOURCE_DIR}/inc)
-
-target_include_directories(test_acq PUBLIC
-				${PROJECT_SOURCE_DIR}/inc)
-
-target_include_directories(test_filter PUBLIC
-				${PROJECT_SOURCE_DIR}/inc)
-
-target_include_directories(test_bert_rx PUBLIC
-				${PROJECT_SOURCE_DIR}/inc)
-
-target_include_directories(test_bert_tx PUBLIC
-				${PROJECT_SOURCE_DIR}/inc)
-
-target_include_directories(test_bert_encode_decode PUBLIC
-				${PROJECT_SOURCE_DIR}/inc)			
-
-
-# Link libraries
 target_link_libraries(M17Netd PUBLIC
 				m17-static
 				Threads::Threads
@@ -112,102 +79,46 @@ target_link_libraries(M17Netd PUBLIC
 				PkgConfig::FFTW
 				)
 
-target_link_libraries(test_demod PUBLIC
-				m17-static
-				${liquid_LIB}
-				)
+## Tests binaries
+# Generate tone
+add_executable(test_tone EXCLUDE_FROM_ALL src/test_tone.cpp $<TARGET_OBJECTS:sx1255> $<TARGET_OBJECTS:spi>)
+target_link_libraries(test_tone
+	PRIVATE m17-static ${ALSA_LIBRARIES})
 
-target_link_libraries(test_tone PUBLIC
-				m17-static
-				${ALSA_LIBRARIES}
-				)
+# Test the demodulator
+add_executable(test_demod EXCLUDE_FROM_ALL src/test_demod.cpp $<TARGET_OBJECTS:M17Demodulator> $<TARGET_OBJECTS:m17rx>)
+target_link_libraries(test_demod
+	PRIVATE m17-static ${liquid_LIB})
 
-target_link_libraries(test_acq PUBLIC
-				${ALSA_LIBRARIES}
-				)
+# Perform acquisition from sdrnode
+add_executable(test_acq EXCLUDE_FROM_ALL src/test_acq.cpp $<TARGET_OBJECTS:sdrnode> $<TARGET_OBJECTS:sx1255> $<TARGET_OBJECTS:spi>)
+target_link_libraries(test_acq
+	PRIVATE ${ALSA_LIBRARIES})
 
-target_link_libraries(test_filter PUBLIC
-				${liquid_LIB}
-				)
+# Filters an acquisition
+add_executable(test_filter EXCLUDE_FROM_ALL src/test_filter.cpp)
+target_link_libraries(test_filter
+	PRIVATE ${liquid_LIB})
 
-target_link_libraries(test_bert_rx PUBLIC
-				m17-static
-				${liquid_LIB}
-				${ALSA_LIBRARIES}
-)
+# Receives and decodes an M17 BERT signal from an SDRNode
+add_executable(test_bert_rx EXCLUDE_FROM_ALL src/test_bert_rx.cpp $<TARGET_OBJECTS:sdrnode> $<TARGET_OBJECTS:sx1255> $<TARGET_OBJECTS:spi> $<TARGET_OBJECTS:M17Demodulator> $<TARGET_OBJECTS:m17rx>)
+target_link_libraries(test_bert_rx
+	PRIVATE m17-static ${liquid_LIB} ${ALSA_LIBRARIES})
 
-target_link_libraries(test_bert_tx PUBLIC
-				m17-static
-				${liquid_LIB}
-				${ALSA_LIBRARIES}
-)
+# Transmits an M17 BERT signal
+add_executable(test_bert_tx EXCLUDE_FROM_ALL src/test_bert_tx.cpp $<TARGET_OBJECTS:sdrnode> $<TARGET_OBJECTS:sx1255> $<TARGET_OBJECTS:spi> $<TARGET_OBJECTS:m17tx>)
+target_link_libraries(test_bert_tx
+	PRIVATE m17-static ${liquid_LIB} ${ALSA_LIBRARIES})
 
-target_link_libraries(test_bert_encode_decode PUBLIC
-				m17-static
-)
+# Tests the M17 BERT implementation
+add_executable(test_bert_encode_decode EXCLUDE_FROM_ALL src/test_bert_encode_decode.cpp)
+target_link_libraries(test_bert_encode_decode
+	PRIVATE m17-static)
+
+add_dependencies(tests test_tone test_demod test_acq test_filter test_bert_rx test_bert_tx test_bert_encode_decode)
 
 # Comilation options
-target_compile_options(M17Netd PRIVATE
--Wall
-$<$<CONFIG:Debug>:
-	-g
->
-$<$<CONFIG:Release>:
-	-O2
->
-)
-
-target_compile_options(test_tone PRIVATE
--Wall
-$<$<CONFIG:Debug>:
-	-g
->
-$<$<CONFIG:Release>:
-	-O2
->
-)
-
-target_compile_options(test_demod PRIVATE
--Wall
-$<$<CONFIG:Debug>:
-	-g
->
-$<$<CONFIG:Release>:
-	-O2
->
-)
-
-target_compile_options(test_bert_rx PRIVATE
--Wall
-$<$<CONFIG:Debug>:
-	-g
->
-$<$<CONFIG:Release>:
-	-O2
->
-)
-
-target_compile_options(test_bert_tx PRIVATE
--Wall
-$<$<CONFIG:Debug>:
-	-g
->
-$<$<CONFIG:Release>:
-	-O2
->
-)
-
-target_compile_options(test_bert_encode_decode PRIVATE
--Wall
-$<$<CONFIG:Debug>:
-	-g
->
-$<$<CONFIG:Release>:
-	-O2
->
-)
-
-target_compile_options(test_filter PRIVATE
+add_compile_options(
 -Wall
 $<$<CONFIG:Debug>:
 	-g

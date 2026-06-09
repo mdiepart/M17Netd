@@ -225,6 +225,7 @@ void int32_to_float(const int32_t *input, float *output, const size_t len)
     {
         in = vld1q_s32(input); // Load next 4 32-bits fixed points integers
         __builtin_prefetch(input+4, 0, 0); // Pre-fetch the next 4 ints, we read, lowest temporal locality.
+        in = reinterpret_cast<int32x4_t>(vshlq_n_u32(reinterpret_cast<uint32x4_t>(in), 8));
         out = vcvtq_n_f32_s32(in, bitlen);// Convert 24 bits fixed point signed integer to float
         vst1q_f32(output, out); // Store the converted number in output array.
         __builtin_prefetch(output+4, 1, 0); // Pre-fetch the next 4 ints, we write, lowest temporal locality.

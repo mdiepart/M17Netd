@@ -90,19 +90,20 @@ void float_to_int16(const float *input, int16_t *output, const size_t len)
 }
 
 /**
- * Convert an array of n float to an array of n 24 bits signed integers (stored in 32 bits signed integers)
+ * Convert an array of n float to an array of n 32 bits signed integers
  *
- * @tparam n number of bits to use for the scale factor (2**n)
+ * @tparam n number of bits to use for the output (i.e. use 24 to return int24_t stored as int32_t)
  * @param input pointer to input float array
- * @param output pointer to output 32 bits integers array (24 bits numbers stored as 32 bits)
+ * @param output pointer to output 32 bits integers array
  * @param len number of elements in the input and output arrays
  *
  * @remark Uses ARM Neon extension if available
  */
 template <size_t n>
-void float_to_int24(const float *input, int32_t *output, const size_t len)
+void float_to_int32(const float *input, int32_t *output, const size_t len)
 {
-    constexpr size_t coeff = (1 << n);
+    const size_t bitlen = n-2; // Remove 1 for signedness, 1 because we want the length of fractional part only
+    constexpr int32_t coeff = (1 << (n-1));
 #ifdef __aarch64__
     int32x4_t out;
     float32x4_t in;
@@ -115,7 +116,7 @@ void float_to_int24(const float *input, int32_t *output, const size_t len)
     {
         in = vld1q_f32(input); // Load next 4 floats
         __builtin_prefetch(input+4, 0, 0); // Pre-fetch the next 4 floats, we read, lowest temporal locality.
-        out = vcvtq_n_s32_f32(in, n); // Convert float to 24 bits fixed point (stored in 32 bits int).
+        out = vcvtq_n_s32_f32(in, bitlen); // Convert float to 24 bits fixed point (stored in 32 bits int).
         vst1q_s32(output, out); // Store the converted number in output array.
         __builtin_prefetch(output+4, 1, 0); // Pre-fetch the next 4 int16, we write, lowest temporal locality.
         input += 4; // Increment input pointer
@@ -125,7 +126,7 @@ void float_to_int24(const float *input, int32_t *output, const size_t len)
     for(size_t i = 0; i < remainder_iters; i++)
     {
         // Scale to 16 bits, cast and store
-        *output = static_cast<int16_t>((*input) * coeff);
+        *output = static_cast<int32_t>((*input) * coeff);
         input++;
         output++;
 
@@ -198,19 +199,20 @@ void int16_to_float(const int16_t *input, float *output, const size_t len)
 }
 
 /**
- * Convert an array of n 16 bits fixed point signed integers to an array of floats
+ * Convert an array of n 32 bits fixed point signed integers to an array of floats
  *
- * @tparam n number of bits to use for the scale factor (2**n)
- * @param input pointer to input 32 bits integer array (24 bits numbers stored as 32 bits)
+ * @tparam n number of meaningful bits in the input (including sign)
+ * @param input pointer to input 32 bits integer array
  * @param output pointer to output float array
  * @param len number of elements in input and output arrays
  *
  * @remark Uses ARM Neon extension if available
  */
 template <size_t n>
-void int24_to_float(const int32_t *input, float *output, const size_t len)
+void int32_to_float(const int32_t *input, float *output, const size_t len)
 {
-    constexpr size_t coeff = (1 << n);
+    const size_t bitlen = n-2; // Remove 1 for signedness, 1 because we want the length of fractional part only
+    constexpr int32_t coeff = (1 << (n-1));
 #ifdef __aarch64__
     float32x4_t out;
     int32x4_t in;
@@ -223,8 +225,7 @@ void int24_to_float(const int32_t *input, float *output, const size_t len)
     {
         in = vld1q_s32(input); // Load next 4 32-bits fixed points integers
         __builtin_prefetch(input+4, 0, 0); // Pre-fetch the next 4 ints, we read, lowest temporal locality.
-        in = reinterpret_cast<int32x4_t>(vshlq_n_u32(reinterpret_cast<uint32x4_t>(in), 8));
-        out = vcvtq_n_f32_s32(in, n);// Convert 24 bits fixed point signed integer to float
+        out = vcvtq_n_f32_s32(in, bitlen);// Convert 24 bits fixed point signed integer to float
         vst1q_f32(output, out); // Store the converted number in output array.
         __builtin_prefetch(output+4, 1, 0); // Pre-fetch the next 4 ints, we write, lowest temporal locality.
         input += 4; // Increment input pointer
@@ -241,7 +242,7 @@ void int24_to_float(const int32_t *input, float *output, const size_t len)
 #else
     // Naïve implementation, manually convert all 24 bits integers to floats
 
-    for(size_t i = 0; i < n; i++)
+    for(size_t i = 0; i < len; i++)
     {
         // Cast to float then scale down and store
         *output = static_cast<float>(*input) / coeff;
@@ -557,7 +558,7 @@ size_t sdrnode::receive(complex<float> *rx, size_t n)
         }
         else if(read > 0)
         {
-            int24_to_float<24>(buff, reinterpret_cast<float*>(rx), (size_t)read*2);
+            int32_to_float<24>(buff, reinterpret_cast<float*>(rx), (size_t)read*2);
             delete[](buff);
             return read;
         }
@@ -575,7 +576,7 @@ int sdrnode::transmit(const complex<float> *tx, size_t n)
         if(buff == nullptr)
             return 0;
 
-        float_to_int24<23>(reinterpret_cast<const float*>(tx), buff, n*2);
+        float_to_int32<24>(reinterpret_cast<const float*>(tx), buff, n*2);
 
         snd_pcm_sframes_t written = 0;
         while(n > 0)

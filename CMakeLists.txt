@@ -118,6 +118,11 @@ add_executable(test_bert_tx EXCLUDE_FROM_ALL src/test_bert_tx.cpp $<TARGET_OBJEC
 target_link_libraries(test_bert_tx
 	PRIVATE m17-static ${liquid_LIB} ${ALSA_LIBRARIES})
 
+# Generates an M17 BERT signal and writes baseband and IQ samples to files
+add_executable(test_bert_tx_file EXCLUDE_FROM_ALL src/test_bert_tx_file.cpp $<TARGET_OBJECTS:m17tx>)
+target_link_libraries(test_bert_tx_file
+	PRIVATE m17-static ${liquid_LIB})
+
 # Tests the M17 BERT implementation
 add_executable(test_bert_encode_decode EXCLUDE_FROM_ALL src/test_bert_encode_decode.cpp)
 target_link_libraries(test_bert_encode_decode

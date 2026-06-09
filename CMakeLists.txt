@@ -85,6 +85,9 @@ add_executable(test_tone EXCLUDE_FROM_ALL src/test_tone.cpp $<TARGET_OBJECTS:sx1
 target_link_libraries(test_tone
 	PRIVATE m17-static ${ALSA_LIBRARIES})
 
+# Switch sdrnode to TX, without sending samples
+add_executable(test_tx EXCLUDE_FROM_ALL src/test_tx.cpp $<TARGET_OBJECTS:sx1255> $<TARGET_OBJECTS:spi>)
+
 # Test the demodulator
 add_executable(test_demod EXCLUDE_FROM_ALL src/test_demod.cpp $<TARGET_OBJECTS:M17Demodulator> $<TARGET_OBJECTS:m17rx>)
 target_link_libraries(test_demod
@@ -115,7 +118,7 @@ add_executable(test_bert_encode_decode EXCLUDE_FROM_ALL src/test_bert_encode_dec
 target_link_libraries(test_bert_encode_decode
 	PRIVATE m17-static)
 
-add_dependencies(tests test_tone test_demod test_acq test_filter test_bert_rx test_bert_tx test_bert_encode_decode)
+add_dependencies(tests test_tone test_tx test_demod test_acq test_filter test_bert_rx test_bert_tx test_bert_encode_decode)
 
 # Comilation options
 add_compile_options(

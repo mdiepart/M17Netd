@@ -108,6 +108,11 @@ add_executable(test_bert_rx EXCLUDE_FROM_ALL src/test_bert_rx.cpp $<TARGET_OBJEC
 target_link_libraries(test_bert_rx
 	PRIVATE m17-static ${liquid_LIB} ${ALSA_LIBRARIES})
 
+# Receives and decodes an M17 BERT signal from an acquisition file
+add_executable(test_bert_rx_file EXCLUDE_FROM_ALL src/test_bert_rx_file.cpp $<TARGET_OBJECTS:M17Demodulator> $<TARGET_OBJECTS:m17rx>)
+target_link_libraries(test_bert_rx_file
+	PRIVATE m17-static ${liquid_LIB})
+
 # Transmits an M17 BERT signal
 add_executable(test_bert_tx EXCLUDE_FROM_ALL src/test_bert_tx.cpp $<TARGET_OBJECTS:sdrnode> $<TARGET_OBJECTS:sx1255> $<TARGET_OBJECTS:spi> $<TARGET_OBJECTS:m17tx>)
 target_link_libraries(test_bert_tx
@@ -118,7 +123,7 @@ add_executable(test_bert_encode_decode EXCLUDE_FROM_ALL src/test_bert_encode_dec
 target_link_libraries(test_bert_encode_decode
 	PRIVATE m17-static)
 
-add_dependencies(tests test_tone test_tx test_demod test_acq test_filter test_bert_rx test_bert_tx test_bert_encode_decode)
+add_dependencies(tests test_tone test_tx test_demod test_acq test_filter test_bert_rx test_bert_rx_file test_bert_tx test_bert_encode_decode)
 
 # Comilation options
 add_compile_options(

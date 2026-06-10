@@ -80,6 +80,9 @@ target_link_libraries(M17Netd PUBLIC
 				)
 
 ## Tests binaries
+# Test types conversion
+add_executable(test_types_conv EXCLUDE_FROM_ALL src/test_typeconv.cpp)
+
 # Generate tone
 add_executable(test_tone EXCLUDE_FROM_ALL src/test_tone.cpp $<TARGET_OBJECTS:sx1255> $<TARGET_OBJECTS:spi>)
 target_link_libraries(test_tone
@@ -128,7 +131,7 @@ add_executable(test_bert_encode_decode EXCLUDE_FROM_ALL src/test_bert_encode_dec
 target_link_libraries(test_bert_encode_decode
 	PRIVATE m17-static)
 
-add_dependencies(tests test_tone test_tx test_demod test_acq test_filter test_bert_rx test_bert_rx_file test_bert_tx test_bert_encode_decode)
+add_dependencies(tests test_types_conv test_tone test_tx test_demod test_acq test_filter test_bert_rx test_bert_rx_file test_bert_tx test_bert_encode_decode)
 
 # Comilation options
 add_compile_options(

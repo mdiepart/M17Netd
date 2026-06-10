@@ -183,13 +183,14 @@ void int16_to_float(const int16_t *input, float *output, const size_t len)
  * Convert an array of n 32 bits fixed point signed integers to an array of floats
  *
  * @tparam n number of meaningful bits in the input (including sign)
+ * @tparam prescaler number of bits to shift the input by, before converting to float
  * @param input pointer to input 32 bits integer array
  * @param output pointer to output float array
  * @param len number of elements in input and output arrays
  *
  * @remark Uses ARM Neon extension if available
  */
-template <size_t n>
+template <size_t n, size_t prescaler = 0>
 void int32_to_float(const int32_t *input, float *output, const size_t len)
 {
     constexpr int32_t coeff = (1 << (n-1))-1;
@@ -208,6 +209,8 @@ void int32_to_float(const int32_t *input, float *output, const size_t len)
     {
         in = vld1q_s32(input); // Load next 4 32-bits fixed points integers
         __builtin_prefetch(input+4, 0, 0); // Pre-fetch the next 4 ints, we read, lowest temporal locality.
+        if(prescaler > 0)
+        in = reinterpret_cast<int32x4_t>(vshlq_n_u32(reinterpret_cast<uint32x4_t>(in), prescaler));
         out = vcvtq_n_f32_s32(in, bitlen);// Convert 32 bits fixed point signed integer to float with proper scaling
         out = vmulq_f32(out, scale_arr);
         vst1q_f32(output, out); // Store the converted number in output array.
@@ -219,7 +222,7 @@ void int32_to_float(const int32_t *input, float *output, const size_t len)
     for(size_t i = 0; i < remainder_iters; i++)
     {
         // Cast to float then scale down and store
-        *output = static_cast<float>(*input) / coeff;
+        *output = static_cast<float>(*input << prescaler) / coeff;
         input++;
         output++;
     }
@@ -229,7 +232,7 @@ void int32_to_float(const int32_t *input, float *output, const size_t len)
     for(size_t i = 0; i < len; i++)
     {
         // Cast to float then scale down and store
-        *output = static_cast<float>(*input) / coeff;
+        *output = static_cast<float>(*input << prescaler) / coeff;
         input++;
         output++;
     }

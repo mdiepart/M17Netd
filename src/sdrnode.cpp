@@ -337,7 +337,7 @@ size_t sdrnode::receive(complex<float> *rx, size_t n)
         }
         else if(read > 0)
         {
-            int32_to_float<24>(buff, reinterpret_cast<float*>(rx), (size_t)read*2);
+            int32_to_float<24, 8>(buff, reinterpret_cast<float*>(rx), (size_t)read*2);
             delete[](buff);
             return read;
         }

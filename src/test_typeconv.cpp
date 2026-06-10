@@ -53,17 +53,41 @@ int main(int argc, char *argv[])
 
     array<float, len> check_float_from16;
     array<float, len> check_float_from24;
+    array<float, len> truth_float16;
+    array<float, len> truth_float24;
+
+    float x = -__INT16_MAX__;
+    step = 2.0*__INT16_MAX__/len;
+
+    for(size_t i = 0; i < len; i++)
+    {
+        x += step;
+        truth_int16[i] = x;
+        truth_float16[i] = static_cast<float>(truth_int16[i]) / static_cast<float>(__INT16_MAX__);
+    }
+
+    step = 2.0*((1<<23)-1)/len;
+    x = -((1<<23)-1);
+
+    for(size_t i = 0; i < len; i++)
+    {
+        x += step;
+        truth_int24[i] = x;
+        truth_float24[i] = static_cast<float>(truth_int24[i]) / static_cast<float>((1<<23)-1);
+    }
+
+
     int16_to_float(truth_int16.data(), check_float_from16.data(), len);
     int32_to_float<24>(truth_int24.data(), check_float_from24.data(), len);
 
     cout << "Checking the conversions from integers to floats" << endl;
     for(size_t i = 0; i < len; i++)
     {
-        if(check_float_from16[i] - truth_float[i] > 1e-5)
+        if(check_float_from16[i] - truth_float16[i] > 1e-8)
         {
             cout << "At index " << i << " the float value computed from 16 bits integer (" << check_float_from16[i] << ") differs from the expected value (" << truth_float[i] << ")." << endl;
         }
-        if(check_float_from24[i] - truth_float[i] > 1e-6)
+        if(check_float_from24[i] - truth_float24[i] > 1e-8)
         {
             cout << "At index " << i << " the float value computed from 24 bits integer (" << check_float_from24[i] << ") differs from the expected value (" << truth_float[i] << ")." << endl;
         }

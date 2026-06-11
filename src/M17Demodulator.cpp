@@ -157,7 +157,7 @@ int M17Demodulator::update(float *samples, const size_t N)
         // Apply RRC on the baseband sample
         firfilt_rrrf_execute_block(rrcos_filt, samples, N, samples);
 #if M17DEMOD_DEBUG_OUT
-        post_rrcos.write(reinterpret_cast<const char *>(samples), sizeof(float));
+        post_rrcos.write(reinterpret_cast<const char *>(samples), N*sizeof(float));
 #endif
         // Process samples
         for(size_t i = 0; i < N; i++)

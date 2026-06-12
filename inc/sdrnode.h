@@ -142,14 +142,26 @@ class sdrnode
     /**
      * Reads at most n samples from the radio
      * This operation will read a number n of samples. Each
-     * sample containing one complex float.
+     * sample contains one complex float.
      *
-     * @param rx buffer containing n complex floats
-     * @param n number of I/Q samples to send. One sample is composed of 1 complex float
+     * @param rx buffer that will contain the n samples
+     * @param n number of I/Q samples to receive.
      *
      * @return the number of samples read
      */
     size_t receive(complex<float> *rx, const size_t n);
+
+    /**
+     * Reads at most n 24 bits samples from the radio
+     * This operation will read a number n of samples. Each
+     * sample contains one complex int32 with 24 significant bits.
+     *
+     * @param rx buffer containing n complex int32
+     * @param n number of I/Q samples to send.
+     *
+     * @return the number of samples read
+     */
+    size_t receive(complex<int32_t> *rx, const size_t n);
 
     /**
      * Writes n samples to the radio
@@ -157,11 +169,23 @@ class sdrnode
      * one complex float.
      *
      * @param tx buffer containing n complex floats
-     * @param n number of I/Q samples to send. One sample is composed of 1 complex float
+     * @param n number of I/Q samples to send.
      *
      * @return 0 on success, -1 on error
      */
     int transmit(const complex<float> *tx, const size_t n);
+
+    /**
+     * Writes n 24 bits samples to the radio
+     * This operation will write a number n of samples. Each sample containing
+     * one complex int32 with 24 significant bits.
+     *
+     * @param tx buffer containing n complex int32
+     * @param n number of I/Q samples to send.
+     *
+     * @return 0 on success, -1 on error
+     */
+    int transmit(const complex<int32_t> *tx, const size_t n);
 
     /**
      * Sets the RX gain of the SDRNode

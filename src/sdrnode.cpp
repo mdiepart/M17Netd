@@ -346,6 +346,28 @@ size_t sdrnode::receive(complex<float> *rx, size_t n)
     return 0;
 }
 
+size_t sdrnode::receive(complex<int32_t> *rx, size_t n)
+{
+    // TODO use snd_pcm_mmap_readi to avoid an unnecessary malloc and copy
+    if(!tx_nRx)
+    {
+        snd_pcm_sframes_t read = snd_pcm_readi(pcm_hdl, rx, n);
+
+        if(read < 0)
+            read = snd_pcm_recover(pcm_hdl, read, 0);
+        if(read < 0)
+        {
+            cout << "pcm read returned " << read << endl;
+            return 0;
+        }
+
+        return read;
+
+    }
+
+    return 0;
+}
+
 int sdrnode::transmit(const complex<float> *tx, size_t n)
 {
     if(tx_nRx)
@@ -373,6 +395,31 @@ int sdrnode::transmit(const complex<float> *tx, size_t n)
         }
 
         delete[](buff);
+
+        return (written < 0)?-1:0;
+    }
+
+    return 0;
+}
+
+int sdrnode::transmit(const complex<int32_t> *tx, size_t n)
+{
+    if(tx_nRx)
+    {
+        snd_pcm_sframes_t written = 0;
+        while(n > 0)
+        {
+            written = snd_pcm_writei(pcm_hdl, tx, n);
+            if(written > 0)
+                n -= written;
+            else if(written < 0)
+            {
+                written = snd_pcm_recover(pcm_hdl, written, 0);
+                if(written < 0)
+                    break;
+            }
+
+        }
 
         return (written < 0)?-1:0;
     }

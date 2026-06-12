@@ -106,6 +106,10 @@ int main(int argc, char *argv[])
 
     freqdem fdem = freqdem_create(kf);
 
+    // initialize DC remover and low pass filter
+    iirfilt_crcf dcr = iirfilt_crcf_create_dc_blocker(4.0/96000.0);
+    firfilt_crcf lpf = firfilt_crcf_create_kaiser(101, 5300.0/96000.0, 65, 0);
+
     m17rx bert_rx;
     size_t counter = 0;
     size_t frame_counter = 0;
@@ -116,6 +120,12 @@ int main(int argc, char *argv[])
         iq_in_file.read(reinterpret_cast<char *>(buffer), block_size*sizeof(complex<float>));
 
         size_t n = iq_in_file.gcount()/sizeof(complex<float>);
+
+        // Remove DC offset (in-place)
+        iirfilt_crcf_execute_block(dcr, buffer, block_size, buffer);
+
+        // Filter out-of-band signal
+        firfilt_crcf_execute_block(lpf, buffer, block_size, buffer);
 
         freqdem_demodulate_block(fdem, buffer, n, baseband);
 

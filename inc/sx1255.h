@@ -151,7 +151,7 @@ class sx1255_drv
     static constexpr unsigned char tx_mixer_tank_res = 0x04; // 2.18 kR
     static constexpr unsigned char tx_pll_bw = 0x03; // 300 Hz
     static constexpr unsigned char tx_filter_bw = 0x00; // 0.418 MHz
-    static constexpr unsigned char tx_dac_bw = 0x02; // 40 taps
+    static constexpr unsigned char tx_dac_bw = 0x05; // 40 taps
 
     static constexpr unsigned char rx_zin = 0x1; // 200 Ohm
     static constexpr unsigned char rx_adc_bw = 0x2; // 100kHz < BW < 400 kHz

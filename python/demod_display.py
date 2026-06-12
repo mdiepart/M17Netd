@@ -5,14 +5,14 @@ import sys
 # Plot the content of a raw file containing real samples as 32 bits floats
 def plot_raw_file(filename, samples):
     arr = np.fromfile(filename, dtype=np.float32)
-    plt.plot(arr[samples])
+    plt.plot(samples, arr[samples])
     plt.title(filename)
 
 # Plot the content of a raw file containing I/Q samples as pairs of 32 bits floats
 def plot_iq_file(filename, samples):
     iq_arr = np.fromfile(filename, dtype=np.csingle)
-    plt.plot(np.real(iq_arr[samples]))
-    plt.plot(np.imag(iq_arr[samples]))
+    plt.plot(samples, np.real(iq_arr[samples]))
+    plt.plot(samples, np.imag(iq_arr[samples]))
     plt.legend(["I", "Q"])
     plt.title(filename)
 
@@ -36,9 +36,15 @@ if __name__ == "__main__":
     if argc < 3:
         print("Invalid usage")
 
-    nb_samples = int(sys.argv[1])
-
-    samps = range(0, nb_samples)
+    samples = sys.argv[1];
+    if(':' in samples):
+        col_pos = samples.find(':')
+        r1 = int(samples[:col_pos])
+        r2 = int(samples[col_pos+1:])
+        samps = range(r1, r2)
+    else:
+        nb_samples = int(sys.argv[1])
+        samps = range(0, nb_samples)
 
     for c in range(2, len(sys.argv)):
         filename = sys.argv[c]

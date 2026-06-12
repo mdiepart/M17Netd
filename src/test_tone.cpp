@@ -53,10 +53,69 @@ int main(int argc, char *argv[])
     sigint_handler.sa_flags = 0;
     sigaction(SIGINT, &sigint_handler, 0);
 
-    constexpr unsigned int freq = 433475000;
-    constexpr int ppm = -32;
+    // Parse first argument (number of samples to acquire)
+    if(argc == 2 && strcmp(argv[1], "help") == 0)
+    {
+        cout << "Usage: " << argv[0] << " tx_frequency ppm_correction tx_gain\n"
+                << "\ttx_frequency        is the frequency at which to transmit the BERT stream.\n"
+                << "\tppm_correction      is the correction to apply to the frequency (in ppm, as an integer).\n"
+                << "\ttx_gain             is the gain to use for the transmitter (must be in range [0, 15], each unit is 2 dB).\n"
+                << endl;
+        return EXIT_SUCCESS;
+    }
+    else if(argc != 4)
+    {
+        cerr << "Incorrect usage, type \"" << argv[0] << " help\" to learn more." << endl;
+        return EXIT_FAILURE;
+    }
+
+
+    unsigned int tx_frequency = 0;
+    int ppm = 0;
+    int tx_gain = 0;
+    float kf = 0;
+
+    // Parse TX frequency
+    try
+    {
+        tx_frequency = stoul(argv[1]);
+    }
+    catch(const std::exception& e)
+    {
+        cerr << "Invalid TX frequency: \"" << argv[1] << "\"." << endl;
+        return EXIT_FAILURE;
+    }
+
+    // Parse PPM
+    try
+    {
+        ppm = stoi(argv[2]);
+    }
+    catch(const std::exception& e)
+    {
+        cerr << "Invalid ppm correction: \"" << argv[2] << "\"." << endl;
+        return EXIT_FAILURE;
+    }
+
+    // Parse TX gain
+    try
+    {
+        tx_gain = stoi(argv[3]);
+    }
+    catch(const std::exception& e)
+    {
+        cerr << "Invalid TX gain: \"" << argv[3] << "\"." << endl;
+        return EXIT_FAILURE;
+    }
+
+    if(tx_gain < 0 || tx_gain > 15)
+    {
+        cerr << "TX gain of " << tx_gain << " is outside the valid range (must be between 0 and 15)." << endl;
+        return EXIT_FAILURE;
+    }
+
     constexpr size_t n_frames = 960*2;
-    constexpr unsigned int corrected_freq = freq + (static_cast<long>(freq)*ppm)/1000000;
+    const unsigned int corrected_freq = tx_frequency * (1+(ppm/1000000.0));
     char audio_dev[] = "default:GDisDACout";
     char spi_dev[] = "/dev/spidev1.0";
 
@@ -75,15 +134,15 @@ int main(int argc, char *argv[])
      *
     */
 
-    int16_t complex_baseband[2*n_frames];
+    int32_t complex_baseband[2*n_frames];
     constexpr float tone = 2400;
-    constexpr int16_t scale = INT16_MAX;
+    constexpr float scale = static_cast<float>((1<<23)-1);
 
     for(size_t i = 0; i < n_frames; i++)
     {
         double arg = 2.0*M_PI*tone*i/96000.0;
-        int16_t I = scale * cos(arg);
-        int16_t Q = scale * sin(arg);
+        int32_t I = static_cast<int32_t>(scale * cos(arg));
+        int32_t Q = static_cast<int32_t>(scale * sin(arg));
         complex_baseband[2*i] = I;
         complex_baseband[2*i+1] = Q;
     }
@@ -95,6 +154,7 @@ int main(int argc, char *argv[])
 
     sx1255.init();
     sx1255.set_tx_freq(corrected_freq);
+    sx1255.set_tx_mix_gain(tx_gain);
 
     open_pcm_tx(&pcm_handle, audio_dev);
 
@@ -160,7 +220,7 @@ int open_pcm_tx(snd_pcm_t **pcm_hdl, char *audio_dev)
         return err;
     }
 
-    err = snd_pcm_hw_params_set_format(*pcm_hdl, pcm_hw_params, SND_PCM_FORMAT_S16_LE);
+    err = snd_pcm_hw_params_set_format(*pcm_hdl, pcm_hw_params, SND_PCM_FORMAT_S24_LE);
     if (err < 0) {
         cerr << "Cannot set sample format: " << snd_strerror(err) << endl;
         *pcm_hdl = nullptr;

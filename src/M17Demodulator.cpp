@@ -314,7 +314,7 @@ int M17Demodulator::update(float *samples, const size_t N)
                         hd = +INFINITY;
                     }
 
-                    if(hd <= 1)
+                    if(hd <= 3)
                     {
                         locked     = true;
                         demodState = DemodState::LOCKED;
@@ -379,7 +379,7 @@ int M17Demodulator::update(float *samples, const size_t N)
 
                             // Valid sync found: update deviation and sample
                             // point, then go back to locked state
-                            if(hd <= 1.7)
+                            if(hd <= 3)
                             {
                                 size_t pkt_peak = packetSync.samplingIndex();
                                 outerDeviation = correlator.maxDeviation(pkt_peak);
@@ -405,7 +405,7 @@ int M17Demodulator::update(float *samples, const size_t N)
 
                             // Valid sync found: update deviation and sample
                             // point, then go back to locked state
-                            if(hd <= 1.7)
+                            if(hd <= 3)
                             {
                                 size_t bert_peak = packetSync.samplingIndex();
                                 outerDeviation = correlator.maxDeviation(bert_peak);
@@ -430,7 +430,7 @@ int M17Demodulator::update(float *samples, const size_t N)
                             float hd  = softHammingDistance(16, demodFrame->data(), SOFT_EOT_SYNC_WORD.data());
 
                             // Valid EOT sync found: unlock demodulator
-                            if(hd <= 1.7)
+                            if(hd <= 3)
                             {
                                 missedSyncs = 0;
                                 demodState     = DemodState::UNLOCKED;

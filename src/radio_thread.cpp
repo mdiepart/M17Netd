@@ -147,43 +147,30 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
 
                 // Re-use rx_samples to store the module of the array
                 complex<float> *in = rx_samples_fft;
-                float *out = reinterpret_cast<float *>(rx_samples);
-                for(size_t i = 0; i < fft_size; i++)
-                {
-                    out[i] = abs(in[i]);
-                }
 
                 // measure the energy inside the channel, avoiding the DC component
-                float chan = 0, noise = 0;
-                for(size_t i = 1; i < half_chan_width; i++)
+                float chan = 0;
+                for(size_t i = 2; i < half_chan_width-2; i++)
                 {
-                    chan += out[i];
+                    chan += abs(in[i]);
                 }
-                for(size_t i = fft_size-half_chan_width; i < fft_size; i++)
+                for(size_t i = fft_size-half_chan_width; i < fft_size-1; i++)
                 {
-                    chan += out[i];
+                    chan += abs(in[i]);
                 }
-
-                for(size_t i = half_chan_width; i < fft_size-half_chan_width; i++)
-                {
-                    noise += out[i];
-                }
-
-                chan /= 2*half_chan_width-1;
-                noise /= (fft_size-2*half_chan_width);
 
                 // Check if there is more energy in the channel than elsewhere in the spectrum
-                if( (chan >= 4*noise) && !channel_bsy )
+                if( (chan >= LBT_threshold) && !channel_bsy )
                 {
                     // Channel is busy
-                    cout << "Channel now busy (chan=" << chan << ", noise=" << noise << ", ratio=" << chan/noise << ")" << endl;
+                    cout << "Channel now busy (chan=" << chan << ")" << endl;
                     channel_bsy = true;
 
                 }
-                else if( (chan < 4*noise) && channel_bsy)
+                else if( (chan < LBT_threshold) && channel_bsy)
                 {
                     // Channel is free
-                    cout << "Channel now free (chan=" << chan << ", noise=" << noise << ", ratio=" << chan/noise << ")" << endl;
+                    cout << "Channel now free (chan=" << chan << ")" << endl;
                     channel_bsy = false;
                 }
                 /*else
@@ -191,7 +178,7 @@ void radio_simplex::operator()(atomic_bool &running, const config &cfg,
                     static size_t counter = 0;
                     if(counter >= 2000)
                     {
-                        cout << "channel is " << (channel_bsy?"busy":"free") << ": chan=" << chan << ", noise=" << noise << ", ratio=" << chan/noise << endl;
+                        cout << "channel is " << (channel_bsy?"busy":"free") << ": chan=" << chan << " << endl;
                         counter = 0;
                     }
                     counter++;

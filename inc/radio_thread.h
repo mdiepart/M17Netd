@@ -42,8 +42,9 @@ class radio_simplex {
     private:
     static constexpr size_t block_size  = 128; /** Samples block size, 1.3ms of baseband at 96000 kSps */
     static constexpr size_t fft_size    = 128; /** Block size to compute the FFT to assess channel occupency */
-    /** Half the bandwidth of the expected signal in terms of FFT bins */
-    static constexpr size_t half_chan_width = (9000*fft_size/96000);
+    static constexpr size_t half_chan_width = (9000*fft_size/96000); /** Half the bandwidth of the expected signal in terms of FFT bins */
+    static constexpr float LBT_threshold = 22.0; /** Listen Before Talk threshold, sum of in-band signal power must be at least this much*/
+
     freqmod fmod;
     freqdem fdem;
 };
